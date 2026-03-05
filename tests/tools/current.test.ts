@@ -81,7 +81,7 @@ describe('CurrentTools', () => {
 
       expect(result.whoop.sleep).toEqual(mockSleep);
       expect(result.whoop.recovery).toEqual(mockRecovery);
-      expect(result.current_time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+      expect(result.current_time).toMatch(/\w+, \w+ \d+, \d{4}/);
       expect(mockWhoopClient.getTodayRecovery).toHaveBeenCalled();
 
       vi.useRealTimers();
@@ -99,8 +99,9 @@ describe('CurrentTools', () => {
 
       const result = await tools.getTodaysRecovery();
 
-      // 10:30:45 UTC = 05:30:45 America/New_York (UTC-5)
-      expect(result.current_time).toBe('2024-12-15T05:30:45-05:00');
+      // 10:30:45 UTC = 05:30 AM America/New_York (UTC-5)
+      expect(result.current_time).toContain('Sunday, December 15, 2024');
+      expect(result.current_time).toContain('5:30 AM');
       expect(result.whoop.sleep).toBeNull();
       expect(result.whoop.recovery).toBeNull();
 
@@ -149,7 +150,7 @@ describe('CurrentTools', () => {
       const result = await tools.getTodaysStrain();
 
       expect(result.whoop.strain).toEqual(mockStrain);
-      expect(result.current_time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+      expect(result.current_time).toMatch(/\w+, \w+ \d+, \d{4}/);
       expect(mockWhoopClient.getTodayStrain).toHaveBeenCalled();
 
       vi.useRealTimers();
@@ -164,8 +165,9 @@ describe('CurrentTools', () => {
 
       const result = await tools.getTodaysStrain();
 
-      // 10:30:45 UTC = 03:30:45 America/Denver (UTC-7)
-      expect(result.current_time).toBe('2024-12-15T03:30:45-07:00');
+      // 10:30:45 UTC = 3:30 AM America/Denver (UTC-7)
+      expect(result.current_time).toContain('Sunday, December 15, 2024');
+      expect(result.current_time).toContain('3:30 AM');
       expect(result.whoop.strain).toBeNull();
 
       vi.useRealTimers();
@@ -232,7 +234,7 @@ describe('CurrentTools', () => {
       expect(result.workouts).toHaveLength(1);
       expect(result.workouts[0].whoop).not.toBeNull();
       expect(result.workouts[0].whoop?.strain_score).toBe(12.5);
-      expect(result.current_time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+      expect(result.current_time).toMatch(/\w+, \w+ \d+, \d{4}/);
       expect(mockIntervalsClient.getActivities).toHaveBeenCalled();
 
       vi.useRealTimers();
@@ -248,8 +250,9 @@ describe('CurrentTools', () => {
 
       const result = await tools.getTodaysCompletedWorkouts();
 
-      // 10:30:45 UTC = 10:30:45 Europe/London (UTC+0 in winter)
-      expect(result.current_time).toBe('2024-12-15T10:30:45+00:00');
+      // 10:30:45 UTC = 10:30 AM Europe/London (UTC+0 in winter)
+      expect(result.current_time).toContain('Sunday, December 15, 2024');
+      expect(result.current_time).toContain('10:30 AM');
       expect(result.workouts).toEqual([]);
 
       vi.useRealTimers();
@@ -391,7 +394,7 @@ describe('CurrentTools', () => {
       expect(result.workouts).toHaveLength(2);
       expect(result.workouts).toContainEqual(trainerroadWorkouts[0]);
       expect(result.workouts).toContainEqual(intervalsWorkouts[0]);
-      expect(result.current_time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+      expect(result.current_time).toMatch(/\w+, \w+ \d+, \d{4}/);
 
       vi.useRealTimers();
     });
@@ -406,8 +409,9 @@ describe('CurrentTools', () => {
 
       const result = await tools.getTodaysPlannedWorkouts();
 
-      // 10:30:45 UTC = 19:30:45 Asia/Tokyo (UTC+9)
-      expect(result.current_time).toBe('2024-12-15T19:30:45+09:00');
+      // 10:30:45 UTC = 7:30 PM Asia/Tokyo (UTC+9)
+      expect(result.current_time).toContain('Sunday, December 15, 2024');
+      expect(result.current_time).toContain('7:30 PM');
       expect(result.workouts).toEqual([]);
 
       vi.useRealTimers();
@@ -630,10 +634,10 @@ describe('CurrentTools', () => {
 
       const result = await tools.getTodaysSummary();
 
-      // Should be ISO 8601 format with timezone offset
-      // 10:30:45 UTC = 05:30:45 America/New_York (UTC-5)
-      expect(result.current_time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
-      expect(result.current_time).toBe('2024-12-15T05:30:45-05:00');
+      // Should be human-readable format with timezone
+      // 10:30:45 UTC = 5:30 AM America/New_York (UTC-5)
+      expect(result.current_time).toContain('Sunday, December 15, 2024');
+      expect(result.current_time).toContain('5:30 AM');
 
       vi.useRealTimers();
     });
