@@ -162,28 +162,6 @@ export function getTodayInTimezone(timezone: string): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: timezone });
 }
 
-/**
- * Get the current date and time in the specified timezone as a human-readable string.
- *
- * Example output: "Sunday, December 25, 2024, 10:30 AM EST" (for America/New_York)
- */
-export function getCurrentDateTimeInTimezone(timezone: string): string {
-  const now = new Date();
-
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZoneName: 'short',
-  });
-
-  return formatter.format(now);
-}
 
 /**
  * Parse a natural language date string into an ISO date string,

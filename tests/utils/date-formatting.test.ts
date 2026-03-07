@@ -146,14 +146,14 @@ describe('date-formatting', () => {
       expect(result.name).toBe('test');
     });
 
-    it('should not modify non-date fields with date-like values', () => {
+    it('should format any field with ISO date values', () => {
       const data = {
         description: '2024-12-15',
-        name: '2024-12-15T14:30:00',
+        name: '2024-12-15T14:30:00-05:00',
       };
       const result = formatResponseDates(data, timezone);
-      expect(result.description).toBe('2024-12-15');
-      expect(result.name).toBe('2024-12-15T14:30:00');
+      expect(result.description).toBe('Sunday, December 15, 2024');
+      expect(result.name).toBe('Sunday, December 15, 2024 at 2:30 PM EST');
     });
 
     it('should skip already formatted human-readable strings', () => {

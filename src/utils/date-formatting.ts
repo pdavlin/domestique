@@ -82,6 +82,19 @@ export function formatDateTimeHumanReadable(date: Date | string | number, timezo
 }
 
 /**
+ * Check if an ISO datetime string has a midnight time component (00:00:00).
+ * Used to determine if a datetime should be displayed as date-only.
+ */
+function isMidnight(isoDateTimeString: string): boolean {
+  const timeMatch = isoDateTimeString.match(/T(\d{2}):(\d{2}):?(\d{2})?/);
+  if (!timeMatch) return false;
+  const hours = parseInt(timeMatch[1], 10);
+  const minutes = parseInt(timeMatch[2], 10);
+  const seconds = parseInt(timeMatch[3] || '0', 10);
+  return hours === 0 && minutes === 0 && seconds === 0;
+}
+
+/**
  * Convert a local datetime string (without timezone) to a human-readable string.
  * Assumes the input string is already in the specified timezone.
  * Returns format: "Sunday, December 15, 2024 at 5:30 AM EST"
@@ -100,19 +113,11 @@ export function formatDateTimeHumanReadable(date: Date | string | number, timezo
  * // Returns: 'Sunday, December 29, 2024'
  */
 export function localStringToHumanReadable(localDateTimeString: string, timezone: string): string {
-  const utcDate = fromZonedTime(localDateTimeString, timezone);
-
-  // Check if this is a midnight time (date-only)
-  const timeMatch = localDateTimeString.match(/T(\d{2}):(\d{2}):?(\d{2})?/);
-  if (timeMatch) {
-    const hours = parseInt(timeMatch[1], 10);
-    const minutes = parseInt(timeMatch[2], 10);
-    const seconds = parseInt(timeMatch[3] || '0', 10);
-    if (hours === 0 && minutes === 0 && seconds === 0) {
-      return formatDateHumanReadable(localDateTimeString.split('T')[0], timezone);
-    }
+  if (isMidnight(localDateTimeString)) {
+    return formatDateHumanReadable(localDateTimeString.split('T')[0], timezone);
   }
 
+  const utcDate = fromZonedTime(localDateTimeString, timezone);
   return formatDateTimeHumanReadable(utcDate, timezone);
 }
 
@@ -149,43 +154,18 @@ const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 // ISO datetime pattern: YYYY-MM-DDTHH:mm:ss with optional timezone offset or Z
 const ISO_DATETIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
-// Fields that contain date-only values (YYYY-MM-DD)
-const DATE_ONLY_FIELDS = new Set([
-  'date',
-  'period_start',
-  'period_end',
-  'previous_period_start',
-  'previous_period_end',
-  'start_date',
-  'end_date',
-  'peak_ctl_date',
-  'date_of_birth',
-]);
-
-// Fields that contain datetime values (ISO 8601 with time)
-const DATETIME_FIELDS = new Set([
-  'start_time',
-  'end_time',
-  'scheduled_for',
-  'sleep_start',
-  'sleep_end',
-  'nap_start',
-  'nap_end',
-  'created',
-]);
-
 /**
- * Recursively format all date fields in a response object to human-readable strings.
- * Recognizes known date field names and converts them based on their format:
- * - Date-only fields (YYYY-MM-DD) → "Sunday, December 15, 2024"
- * - Datetime fields (ISO 8601) → "Sunday, December 15, 2024 at 5:30 AM EST"
+ * Recursively format all date/datetime string values in a response object to human-readable strings.
+ * Detects dates by value pattern rather than field name:
+ * - ISO date strings (YYYY-MM-DD) → "Sunday, December 15, 2024"
+ * - ISO datetime strings (YYYY-MM-DDTHH:mm:ss...) → "Sunday, December 15, 2024 at 5:30 AM EST"
  *   - Midnight datetimes → "Sunday, December 15, 2024" (time omitted)
  *
- * Fields that are already human-readable (don't match ISO patterns) are left unchanged.
+ * Non-ISO string values are left unchanged.
  *
  * @param data - The response data to format
  * @param timezone - IANA timezone for formatting
- * @returns A new object with all date fields formatted
+ * @returns A new object with all date values formatted
  */
 export function formatResponseDates<T>(data: T, timezone: string): T {
   if (data === null || data === undefined) {
@@ -204,21 +184,14 @@ export function formatResponseDates<T>(data: T, timezone: string): T {
 
   for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
     if (typeof value === 'string') {
-      if (DATE_ONLY_FIELDS.has(key) && ISO_DATE_PATTERN.test(value)) {
+      if (ISO_DATE_PATTERN.test(value)) {
         result[key] = formatDateHumanReadable(value, timezone);
-      } else if (DATETIME_FIELDS.has(key) && ISO_DATETIME_PATTERN.test(value)) {
-        // Check for midnight time to use date-only format
-        const timeMatch = value.match(/T(\d{2}):(\d{2}):?(\d{2})?/);
-        if (timeMatch) {
-          const hours = parseInt(timeMatch[1], 10);
-          const minutes = parseInt(timeMatch[2], 10);
-          const seconds = parseInt(timeMatch[3] || '0', 10);
-          if (hours === 0 && minutes === 0 && seconds === 0) {
-            result[key] = formatDateHumanReadable(value.split('T')[0], timezone);
-            continue;
-          }
+      } else if (ISO_DATETIME_PATTERN.test(value)) {
+        if (isMidnight(value)) {
+          result[key] = formatDateHumanReadable(value.split('T')[0], timezone);
+        } else {
+          result[key] = formatDateTimeHumanReadable(value, timezone);
         }
-        result[key] = formatDateTimeHumanReadable(value, timezone);
       } else {
         result[key] = value;
       }
