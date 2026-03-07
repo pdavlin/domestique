@@ -2,7 +2,7 @@ import { addDays, format } from 'date-fns';
 import { IntervalsClient } from '../clients/intervals.js';
 import { TrainerRoadClient } from '../clients/trainerroad.js';
 import { parseDateStringInTimezone } from '../utils/date-parser.js';
-import { DOMESTIQUE_TAG, areWorkoutsSimilar } from '../utils/workout-utils.js';
+import { DOMESTIQUE_TAG, mergeWorkouts } from '../utils/workout-utils.js';
 import type {
   PlannedWorkout,
   ActivityType,
@@ -66,7 +66,7 @@ export class PlanningTools {
     ]);
 
     // Merge, deduplicate, and sort by date
-    let workouts = this.mergeWorkouts(trainerroadWorkouts, intervalsWorkouts);
+    let workouts = mergeWorkouts(trainerroadWorkouts, intervalsWorkouts);
 
     // Filter by sport if specified
     if (sport) {
@@ -90,27 +90,6 @@ export class PlanningTools {
     return {
       workouts: sortedWorkouts,
     };
-  }
-
-  /**
-   * Merge workouts from both sources, avoiding duplicates
-   */
-  private mergeWorkouts(
-    trainerroad: PlannedWorkout[],
-    intervals: PlannedWorkout[]
-  ): PlannedWorkout[] {
-    const merged = [...trainerroad];
-
-    for (const intervalsWorkout of intervals) {
-      const isDuplicate = trainerroad.some((tr) =>
-        areWorkoutsSimilar(tr, intervalsWorkout)
-      );
-      if (!isDuplicate) {
-        merged.push(intervalsWorkout);
-      }
-    }
-
-    return merged;
   }
 
   /**
@@ -141,42 +120,11 @@ export class PlanningTools {
    * The workout will be tagged with 'domestique' for tracking.
    */
   async createRunWorkout(input: CreateRunWorkoutInput): Promise<CreateWorkoutResponse> {
-    const timezone = await this.intervals.getAthleteTimezone();
-
-    let scheduledDate: string;
-
-    // Check if input already has a time component (ISO datetime format)
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(input.scheduled_for)) {
-      // Preserve the full datetime
-      scheduledDate = input.scheduled_for;
-    } else {
-      // Parse the date string and add midnight
-      const dateOnly = parseDateStringInTimezone(
-        input.scheduled_for,
-        timezone,
-        'scheduled_for'
-      );
-      scheduledDate = `${dateOnly}T00:00:00`;
-    }
-
-    // Create the event via API
-    const response = await this.intervals.createEvent({
-      name: input.name,
-      description: (input.description ? `${input.description}\n\n` : '') + input.workout_doc,
+    return this.createWorkout({
+      ...input,
       type: 'Run',
-      category: 'WORKOUT',
-      start_date_local: scheduledDate,
-      tags: [DOMESTIQUE_TAG],
       external_id: input.trainerroad_uid,
     });
-
-    return {
-      id: response.id,
-      uid: response.uid,
-      name: response.name,
-      scheduled_for: response.start_date_local,
-      intervals_icu_url: `https://intervals.icu/calendar/${scheduledDate.split('T')[0]}`,
-    };
   }
 
   /**
@@ -184,18 +132,29 @@ export class PlanningTools {
    * The workout will be tagged with 'domestique' for tracking.
    */
   async createCyclingWorkout(input: CreateCyclingWorkoutInput): Promise<CreateWorkoutResponse> {
+    return this.createWorkout({ ...input, type: 'Ride' });
+  }
+
+  private async createWorkout(params: {
+    scheduled_for: string;
+    name: string;
+    description?: string;
+    workout_doc: string;
+    type: 'Run' | 'Ride';
+    external_id?: string;
+  }): Promise<CreateWorkoutResponse> {
     const timezone = await this.intervals.getAthleteTimezone();
 
     let scheduledDate: string;
 
     // Check if input already has a time component (ISO datetime format)
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(input.scheduled_for)) {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(params.scheduled_for)) {
       // Preserve the full datetime
-      scheduledDate = input.scheduled_for;
+      scheduledDate = params.scheduled_for;
     } else {
       // Parse the date string and add midnight
       const dateOnly = parseDateStringInTimezone(
-        input.scheduled_for,
+        params.scheduled_for,
         timezone,
         'scheduled_for'
       );
@@ -204,12 +163,13 @@ export class PlanningTools {
 
     // Create the event via API
     const response = await this.intervals.createEvent({
-      name: input.name,
-      description: (input.description ? `${input.description}\n\n` : '') + input.workout_doc,
-      type: 'Ride',
+      name: params.name,
+      description: (params.description ? `${params.description}\n\n` : '') + params.workout_doc,
+      type: params.type,
       category: 'WORKOUT',
       start_date_local: scheduledDate,
       tags: [DOMESTIQUE_TAG],
+      external_id: params.external_id,
     });
 
     return {

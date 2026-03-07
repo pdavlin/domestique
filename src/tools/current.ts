@@ -1,9 +1,10 @@
 import { IntervalsClient } from '../clients/intervals.js';
 import { WhoopClient } from '../clients/whoop.js';
 import { TrainerRoadClient } from '../clients/trainerroad.js';
-import { parseDateString, getToday, getTodayInTimezone, parseDateStringInTimezone } from '../utils/date-parser.js';
+import { parseDateRangeInTimezone } from '../utils/date-parser.js';
+import { getTodayInTimezone } from '../utils/date-parser.js';
 import { getCurrentTimeInTimezone } from '../utils/date-formatting.js';
-import { DOMESTIQUE_TAG, areWorkoutsSimilar, matchWhoopActivity } from '../utils/workout-utils.js';
+import { DOMESTIQUE_TAG, mergeWorkouts, matchWhoopActivity } from '../utils/workout-utils.js';
 import type {
   StrainData,
   FitnessMetrics,
@@ -158,10 +159,7 @@ export class CurrentTools {
 
     // Use athlete's timezone for date parsing
     const timezone = await this.intervals.getAthleteTimezone();
-    const startDate = parseDateStringInTimezone(params.oldest, timezone, 'oldest');
-    const endDate = params.newest
-      ? parseDateStringInTimezone(params.newest, timezone, 'newest')
-      : getTodayInTimezone(timezone);
+    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
     try {
       return await this.whoop.getStrainData(startDate, endDate);
@@ -195,17 +193,7 @@ export class CurrentTools {
     ]);
 
     // Merge workouts, preferring TrainerRoad for duplicates (has more detail)
-    const merged = [...trainerroadWorkouts];
-
-    // Add Intervals.icu workouts that don't seem to be duplicates
-    for (const intervalsWorkout of intervalsWorkouts) {
-      const isDuplicate = trainerroadWorkouts.some((tr) =>
-        areWorkoutsSimilar(tr, intervalsWorkout)
-      );
-      if (!isDuplicate) {
-        merged.push(intervalsWorkout);
-      }
-    }
+    const merged = mergeWorkouts(trainerroadWorkouts, intervalsWorkouts);
 
     return {
       current_time: currentDateTime,

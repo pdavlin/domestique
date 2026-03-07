@@ -39,6 +39,28 @@ export function areWorkoutsSimilar(a: PlannedWorkout, b: PlannedWorkout): boolea
 }
 
 /**
+ * Merge workouts from TrainerRoad and Intervals.icu, avoiding duplicates.
+ * Prefers TrainerRoad workouts when duplicates are detected (has more detail).
+ */
+export function mergeWorkouts(
+  trainerroad: PlannedWorkout[],
+  intervals: PlannedWorkout[]
+): PlannedWorkout[] {
+  const merged = [...trainerroad];
+
+  for (const intervalsWorkout of intervals) {
+    const isDuplicate = trainerroad.some((tr) =>
+      areWorkoutsSimilar(tr, intervalsWorkout)
+    );
+    if (!isDuplicate) {
+      merged.push(intervalsWorkout);
+    }
+  }
+
+  return merged;
+}
+
+/**
  * Find and match a Whoop activity to an Intervals.icu workout.
  * Returns the matched Whoop data or null if no match found.
  */

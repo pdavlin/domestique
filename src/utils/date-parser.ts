@@ -200,6 +200,23 @@ export function parseDateStringInTimezone(
 }
 
 /**
+ * Parse oldest/newest date parameters into a start/end date range,
+ * using the athlete's timezone for relative date parsing.
+ * If newest is not provided, defaults to today in the given timezone.
+ */
+export function parseDateRangeInTimezone(
+  oldest: string,
+  newest: string | undefined,
+  timezone: string
+): { startDate: string; endDate: string } {
+  const startDate = parseDateStringInTimezone(oldest, timezone, 'oldest');
+  const endDate = newest
+    ? parseDateStringInTimezone(newest, timezone, 'newest')
+    : getTodayInTimezone(timezone);
+  return { startDate, endDate };
+}
+
+/**
  * Get start of day as ISO datetime
  */
 export function getStartOfDay(date: string): string {

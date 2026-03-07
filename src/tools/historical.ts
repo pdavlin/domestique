@@ -1,6 +1,6 @@
 import { IntervalsClient } from '../clients/intervals.js';
 import { WhoopClient } from '../clients/whoop.js';
-import { parseDateString, getToday, parseDateStringInTimezone, getTodayInTimezone } from '../utils/date-parser.js';
+import { parseDateStringInTimezone, parseDateRangeInTimezone } from '../utils/date-parser.js';
 import { matchWhoopActivity } from '../utils/workout-utils.js';
 import {
   parseDurationToHours,
@@ -65,10 +65,7 @@ export class HistoricalTools {
   ): Promise<WorkoutWithWhoop[]> {
     // Use athlete's timezone for date parsing
     const timezone = await this.intervals.getAthleteTimezone();
-    const startDate = parseDateStringInTimezone(params.oldest, timezone, 'oldest');
-    const endDate = params.newest
-      ? parseDateStringInTimezone(params.newest, timezone, 'newest')
-      : getTodayInTimezone(timezone);
+    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
     try {
       // Fetch Intervals.icu activities
@@ -137,10 +134,7 @@ export class HistoricalTools {
 
     // Use athlete's timezone for date parsing
     const timezone = await this.intervals.getAthleteTimezone();
-    const startDate = parseDateStringInTimezone(params.oldest, timezone, 'oldest');
-    const endDate = params.newest
-      ? parseDateStringInTimezone(params.newest, timezone, 'newest')
-      : getTodayInTimezone(timezone);
+    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
     try {
       const data = await this.whoop.getRecoveries(startDate, endDate);
@@ -204,10 +198,7 @@ export class HistoricalTools {
   }): Promise<WellnessTrends> {
     // Use athlete's timezone for date parsing
     const timezone = await this.intervals.getAthleteTimezone();
-    const startDate = parseDateStringInTimezone(params.oldest, timezone, 'oldest');
-    const endDate = params.newest
-      ? parseDateStringInTimezone(params.newest, timezone, 'newest')
-      : getTodayInTimezone(timezone);
+    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
     try {
       const trends = await this.intervals.getWellnessTrends(startDate, endDate);
@@ -384,10 +375,7 @@ export class HistoricalTools {
     compare_to_newest?: string;
   }): Promise<PowerCurvesResponse> {
     const timezone = await this.intervals.getAthleteTimezone();
-    const startDate = parseDateStringInTimezone(params.oldest, timezone, 'oldest');
-    const endDate = params.newest
-      ? parseDateStringInTimezone(params.newest, timezone, 'newest')
-      : getTodayInTimezone(timezone);
+    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
     const durations = params.durations || this.DEFAULT_POWER_DURATIONS;
 
@@ -559,10 +547,7 @@ export class HistoricalTools {
     compare_to_newest?: string;
   }): Promise<PaceCurvesResponse> {
     const timezone = await this.intervals.getAthleteTimezone();
-    const startDate = parseDateStringInTimezone(params.oldest, timezone, 'oldest');
-    const endDate = params.newest
-      ? parseDateStringInTimezone(params.newest, timezone, 'newest')
-      : getTodayInTimezone(timezone);
+    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
     const isSwimming = params.sport === 'swimming';
     const type = isSwimming ? 'Swim' : 'Run';
@@ -742,10 +727,7 @@ export class HistoricalTools {
     compare_to_newest?: string;
   }): Promise<HRCurvesResponse> {
     const timezone = await this.intervals.getAthleteTimezone();
-    const startDate = parseDateStringInTimezone(params.oldest, timezone, 'oldest');
-    const endDate = params.newest
-      ? parseDateStringInTimezone(params.newest, timezone, 'newest')
-      : getTodayInTimezone(timezone);
+    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
     const durations = params.durations || this.DEFAULT_HR_DURATIONS;
 
@@ -905,10 +887,7 @@ export class HistoricalTools {
    */
   async getActivityTotals(params: GetActivityTotalsInput): Promise<ActivityTotalsResponse> {
     const timezone = await this.intervals.getAthleteTimezone();
-    const startDate = parseDateStringInTimezone(params.oldest, timezone, 'oldest');
-    const endDate = params.newest
-      ? parseDateStringInTimezone(params.newest, timezone, 'newest')
-      : getTodayInTimezone(timezone);
+    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
     try {
       // Fetch activities with skipExpensiveCalls to avoid per-activity API calls
@@ -992,9 +971,21 @@ export class HistoricalTools {
   }
 
   /**
-   * Aggregate totals across all activities
+   * Accumulate stats from a list of activities into raw totals.
+   * Shared by aggregateTotals and aggregateBySport.
    */
-  private aggregateTotals(activities: NormalizedWorkout[]): ActivityTotalsResponse['totals'] {
+  private accumulateActivityStats(activities: NormalizedWorkout[]): {
+    durationSeconds: number;
+    distanceKm: number;
+    climbingM: number;
+    load: number;
+    kcal: number;
+    workKj: number;
+    coastingSeconds: number;
+    hrZoneSeconds: Map<string, number>;
+    powerZoneSeconds: Map<string, number>;
+    paceZoneSeconds: Map<string, number>;
+  } {
     let durationSeconds = 0;
     let distanceKm = 0;
     let climbingM = 0;
@@ -1003,14 +994,14 @@ export class HistoricalTools {
     let workKj = 0;
     let coastingSeconds = 0;
     const hrZoneSeconds: Map<string, number> = new Map();
+    const powerZoneSeconds: Map<string, number> = new Map();
+    const paceZoneSeconds: Map<string, number> = new Map();
 
     for (const activity of activities) {
-      // Parse duration
       if (activity.duration) {
         durationSeconds += parseDurationToSeconds(activity.duration);
       }
 
-      // Parse distance (remove " km" or " m" suffix)
       if (activity.distance) {
         const distMatch = activity.distance.match(/^([\d.]+)\s*(km|m)$/);
         if (distMatch) {
@@ -1020,7 +1011,6 @@ export class HistoricalTools {
         }
       }
 
-      // Parse elevation gain (remove " m" suffix)
       if (activity.elevation_gain) {
         const elevMatch = activity.elevation_gain.match(/^([\d.]+)\s*m$/);
         if (elevMatch) {
@@ -1028,74 +1018,79 @@ export class HistoricalTools {
         }
       }
 
-      // Sum load/TSS
       if (activity.tss) {
         load += activity.tss;
       } else if (activity.load) {
         load += activity.load;
       }
 
-      // Sum calories
       if (activity.calories) {
         kcal += activity.calories;
       }
 
-      // Sum work (kJ)
       if (activity.work_kj) {
         workKj += activity.work_kj;
       }
 
-      // Parse coasting time
       if (activity.coasting_time) {
         coastingSeconds += parseDurationToSeconds(activity.coasting_time);
       }
 
-      // Aggregate HR zones
       if (activity.hr_zones) {
         for (const zone of activity.hr_zones) {
           if (zone.time_in_zone) {
-            const zoneName = zone.name;
             const seconds = parseDurationToSeconds(zone.time_in_zone);
-            hrZoneSeconds.set(zoneName, (hrZoneSeconds.get(zoneName) || 0) + seconds);
+            hrZoneSeconds.set(zone.name, (hrZoneSeconds.get(zone.name) || 0) + seconds);
+          }
+        }
+      }
+
+      if (activity.power_zones) {
+        for (const zone of activity.power_zones) {
+          if (zone.time_in_zone) {
+            const seconds = parseDurationToSeconds(zone.time_in_zone);
+            powerZoneSeconds.set(zone.name, (powerZoneSeconds.get(zone.name) || 0) + seconds);
+          }
+        }
+      }
+
+      if (activity.pace_zones) {
+        for (const zone of activity.pace_zones) {
+          if (zone.time_in_zone) {
+            const seconds = parseDurationToSeconds(zone.time_in_zone);
+            paceZoneSeconds.set(zone.name, (paceZoneSeconds.get(zone.name) || 0) + seconds);
           }
         }
       }
     }
 
-    // Calculate HR zone percentages
-    const totalHrZoneSeconds = Array.from(hrZoneSeconds.values()).reduce((a, b) => a + b, 0);
-    const hrZones: ZoneTotalEntry[] = Array.from(hrZoneSeconds.entries())
-      .map(([name, seconds]) => ({
-        name,
-        time: formatLargeDuration(seconds),
-        percentage: totalHrZoneSeconds > 0 ? Math.round((seconds / totalHrZoneSeconds) * 1000) / 10 : 0,
-      }))
-      .sort((a, b) => {
-        // Sort by zone order (Z1 first, etc.)
-        const order = ['Recovery', 'Endurance', 'Tempo', 'Sweet Spot', 'Threshold', 'VO2max', 'Anaerobic', 'Neuromuscular'];
-        const aIdx = order.findIndex((z) => a.name.toLowerCase().includes(z.toLowerCase()));
-        const bIdx = order.findIndex((z) => b.name.toLowerCase().includes(z.toLowerCase()));
-        return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
-      });
+    return { durationSeconds, distanceKm, climbingM, load, kcal, workKj, coastingSeconds, hrZoneSeconds, powerZoneSeconds, paceZoneSeconds };
+  }
+
+  /**
+   * Aggregate totals across all activities
+   */
+  private aggregateTotals(activities: NormalizedWorkout[]): ActivityTotalsResponse['totals'] {
+    const stats = this.accumulateActivityStats(activities);
+    const hrZones = this.calculateZonePercentages(stats.hrZoneSeconds);
 
     const result: ActivityTotalsResponse['totals'] = {
       activities: activities.length,
-      duration: formatLargeDuration(durationSeconds),
-      distance: `${Math.round(distanceKm)} km`,
-      load: Math.round(load),
-      kcal: Math.round(kcal),
-      coasting: formatLargeDuration(coastingSeconds),
+      duration: formatLargeDuration(stats.durationSeconds),
+      distance: `${Math.round(stats.distanceKm)} km`,
+      load: Math.round(stats.load),
+      kcal: Math.round(stats.kcal),
+      coasting: formatLargeDuration(stats.coastingSeconds),
       zones: {
         heart_rate: hrZones.length > 0 ? hrZones : undefined,
       },
     };
 
-    // Only include climbing and work if > 0
-    if (climbingM > 0) {
-      result.climbing = `${Math.round(climbingM)} m`;
+    if (stats.climbingM > 0) {
+      result.climbing = `${Math.round(stats.climbingM)} m`;
     }
-    if (workKj > 0) {
-      result.work = `${Math.round(workKj)} kJ`;
+    if (stats.workKj > 0) {
+      result.work = `${Math.round(stats.workKj)} kJ`;
     }
 
     return result;
@@ -1120,125 +1115,38 @@ export class HistoricalTools {
     const result: { [sport: string]: SportTotals } = {};
 
     for (const [sport, sportActivities] of sportGroups) {
-      let durationSeconds = 0;
-      let distanceKm = 0;
-      let climbingM = 0;
-      let load = 0;
-      let kcal = 0;
-      let workKj = 0;
-      let coastingSeconds = 0;
-      const hrZoneSeconds: Map<string, number> = new Map();
-      const powerZoneSeconds: Map<string, number> = new Map();
-      const paceZoneSeconds: Map<string, number> = new Map();
-
-      for (const activity of sportActivities) {
-        // Parse duration
-        if (activity.duration) {
-          durationSeconds += parseDurationToSeconds(activity.duration);
-        }
-
-        // Parse distance
-        if (activity.distance) {
-          const distMatch = activity.distance.match(/^([\d.]+)\s*(km|m)$/);
-          if (distMatch) {
-            const value = parseFloat(distMatch[1]);
-            const unit = distMatch[2];
-            distanceKm += unit === 'km' ? value : value / 1000;
-          }
-        }
-
-        // Parse elevation gain
-        if (activity.elevation_gain) {
-          const elevMatch = activity.elevation_gain.match(/^([\d.]+)\s*m$/);
-          if (elevMatch) {
-            climbingM += parseFloat(elevMatch[1]);
-          }
-        }
-
-        // Sum load/TSS
-        if (activity.tss) {
-          load += activity.tss;
-        } else if (activity.load) {
-          load += activity.load;
-        }
-
-        // Sum calories
-        if (activity.calories) {
-          kcal += activity.calories;
-        }
-
-        // Sum work (kJ)
-        if (activity.work_kj) {
-          workKj += activity.work_kj;
-        }
-
-        // Parse coasting time (cycling only)
-        if (activity.coasting_time) {
-          coastingSeconds += parseDurationToSeconds(activity.coasting_time);
-        }
-
-        // Aggregate HR zones
-        if (activity.hr_zones) {
-          for (const zone of activity.hr_zones) {
-            if (zone.time_in_zone) {
-              const seconds = parseDurationToSeconds(zone.time_in_zone);
-              hrZoneSeconds.set(zone.name, (hrZoneSeconds.get(zone.name) || 0) + seconds);
-            }
-          }
-        }
-
-        // Aggregate power zones (cycling)
-        if (activity.power_zones) {
-          for (const zone of activity.power_zones) {
-            if (zone.time_in_zone) {
-              const seconds = parseDurationToSeconds(zone.time_in_zone);
-              powerZoneSeconds.set(zone.name, (powerZoneSeconds.get(zone.name) || 0) + seconds);
-            }
-          }
-        }
-
-        // Aggregate pace zones (running)
-        if (activity.pace_zones) {
-          for (const zone of activity.pace_zones) {
-            if (zone.time_in_zone) {
-              const seconds = parseDurationToSeconds(zone.time_in_zone);
-              paceZoneSeconds.set(zone.name, (paceZoneSeconds.get(zone.name) || 0) + seconds);
-            }
-          }
-        }
-      }
+      const stats = this.accumulateActivityStats(sportActivities);
 
       // Format distance based on sport
       const isSwim = sport === 'swimming';
       const distanceFormatted = isSwim
-        ? `${Math.round(distanceKm * 1000)} m`
-        : `${Math.round(distanceKm)} km`;
+        ? `${Math.round(stats.distanceKm * 1000)} m`
+        : `${Math.round(stats.distanceKm)} km`;
 
       // Calculate zone percentages
-      const hrZones = this.calculateZonePercentages(hrZoneSeconds);
-      const powerZones = this.calculateZonePercentages(powerZoneSeconds);
-      const paceZones = this.calculateZonePercentages(paceZoneSeconds);
+      const hrZones = this.calculateZonePercentages(stats.hrZoneSeconds);
+      const powerZones = this.calculateZonePercentages(stats.powerZoneSeconds);
+      const paceZones = this.calculateZonePercentages(stats.paceZoneSeconds);
 
       const sportTotals: SportTotals = {
         activities: sportActivities.length,
-        duration: formatLargeDuration(durationSeconds),
+        duration: formatLargeDuration(stats.durationSeconds),
         distance: distanceFormatted,
-        load: Math.round(load),
-        kcal: Math.round(kcal),
+        load: Math.round(stats.load),
+        kcal: Math.round(stats.kcal),
         zones: {},
       };
 
-      // Only include climbing and work if > 0
-      if (climbingM > 0) {
-        sportTotals.climbing = `${Math.round(climbingM)} m`;
+      if (stats.climbingM > 0) {
+        sportTotals.climbing = `${Math.round(stats.climbingM)} m`;
       }
-      if (workKj > 0) {
-        sportTotals.work = `${Math.round(workKj)} kJ`;
+      if (stats.workKj > 0) {
+        sportTotals.work = `${Math.round(stats.workKj)} kJ`;
       }
 
       // Add coasting only for cycling
-      if (sport === 'cycling' && coastingSeconds > 0) {
-        sportTotals.coasting = formatLargeDuration(coastingSeconds);
+      if (sport === 'cycling' && stats.coastingSeconds > 0) {
+        sportTotals.coasting = formatLargeDuration(stats.coastingSeconds);
       }
 
       // Add zone data for any sport that has it
