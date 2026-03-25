@@ -69,6 +69,17 @@ If no unit is specified, the athlete's default pace unit is used.
 - 800m 3:20/km Pace
 ```
 
+## RPE targets
+
+Intervals with RPE targets must use text prompts (see below) to describe the RPE and only specify the duration of the interval. You **must** confirm with the user if they want to use RPE targets or try to convert them to an equivalent format.
+
+**Example with RPE targets:**
+```
+- RPE4 10m
+- RPE7 1km
+- RPE8 800m
+```
+
 ## Ramps
 
 Gradual intensity changes use the `ramp` keyword (case-insensitive):
@@ -192,6 +203,20 @@ Cooldown
 - 2km 6:15/km Pace
 ```
 
+### Running Intervals with RPE targets
+
+```
+Warmup
+- RPE4 10m
+
+Main Set 5x
+- RPE8 3m
+- RPE4 3m
+
+Cooldown
+- RPE4 10m
+```
+
 ### Running Progressive Long Run
 
 ```
@@ -222,6 +247,7 @@ Cooldown
 Before creating a workout, you must:
 
 1. Fetch the user's running pace zones and threshold pace via the get_sports_settings tool
-2. Use your best judgment to map RPE descriptions from the TrainerRoad workout to the correct pace for each step
-3. Verify the structure of the generated workout with the user, and adjust based on feedback
-4. Create the workout using Intervals.icu syntax, ensuring that it adheres **EXACTLY** to these instructions
+2. If the workout is described using RPE targets, ask the user if they want the workout set up using those RPE targets, or convert them to pace targets
+3. If the user wants to convert RPE to paces, use your best judgment to map RPE descriptions from the TrainerRoad workout to the correct pace for each step
+4. Verify the structure of the generated workout with the user, and adjust based on feedback
+5. Create the workout using Intervals.icu syntax, ensuring that it adheres **EXACTLY** to these instructions
