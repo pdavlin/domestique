@@ -8,7 +8,7 @@ import type {
   PlannedWorkout,
   TodaysPlannedWorkoutsResponse,
   DailySummary,
-  WorkoutWithWhoop,
+  NormalizedWorkout,
 } from '../../types/index.js';
 import { DOMESTIQUE_TAG, areWorkoutsSimilar } from '../workout-utils.js';
 
@@ -75,14 +75,14 @@ export const dailySummarySyncHint: HintGenerator<DailySummary> = (data) => {
 
 /** Response type for workout history */
 interface WorkoutHistoryResponse {
-  workouts: WorkoutWithWhoop[];
+  workouts: NormalizedWorkout[];
 }
 
 /**
  * Hint for drilling into workout history details.
  * Guides LLM on which tools to call for deeper workout analysis.
  */
-export const workoutHistoryHint: HintGenerator<WorkoutHistoryResponse | WorkoutWithWhoop[]> = (data) => {
+export const workoutHistoryHint: HintGenerator<WorkoutHistoryResponse | NormalizedWorkout[]> = (data) => {
   const workouts = Array.isArray(data) ? data : data.workouts;
   if (workouts.length === 0) return undefined;
 
@@ -97,6 +97,6 @@ export const workoutHistoryHint: HintGenerator<WorkoutHistoryResponse | WorkoutW
 /**
  * Combined hint generators for workout history.
  */
-export const workoutHistoryHints: HintGenerator<WorkoutHistoryResponse | WorkoutWithWhoop[]>[] = [
+export const workoutHistoryHints: HintGenerator<WorkoutHistoryResponse | NormalizedWorkout[]>[] = [
   workoutHistoryHint,
 ];

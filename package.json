@@ -1,7 +1,7 @@
 {
   "name": "domestique",
   "version": "1.0.0",
-  "description": "Fitness MCP server integrating Intervals.icu, Whoop, and TrainerRoad",
+  "description": "Fitness MCP server integrating Intervals.icu and TrainerRoad",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -12,15 +12,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "whoop:auth": "node dist/scripts/whoop-oauth.js",
-    "whoop:auth:dev": "tsx src/scripts/whoop-oauth.ts",
     "test:clients": "node dist/scripts/test-clients.js"
   },
   "keywords": [
     "mcp",
     "fitness",
     "intervals.icu",
-    "whoop",
     "trainerroad"
   ],
   "author": "",
@@ -32,7 +29,6 @@
     "date-fns-tz": "^3.2.0",
     "express": "^5.2.1",
     "node-ical": "^0.25.6",
-    "redis": "^5.11.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -1,16 +1,13 @@
 import { IntervalsClient } from '../clients/intervals.js';
-import { WhoopClient } from '../clients/whoop.js';
 import { parseDateStringInTimezone, parseDateRangeInTimezone } from '../utils/date-parser.js';
-import { enrichWorkoutsWithWhoop, normalizeActivityTypeToSport } from '../utils/workout-utils.js';
+import { normalizeActivityTypeToSport } from '../utils/workout-utils.js';
 import {
-  parseDurationToHours,
   parseDurationToSeconds,
   formatLargeDuration,
   formatDurationLabel,
 } from '../utils/format-units.js';
 import type {
   TrainingLoadTrends,
-  WorkoutWithWhoop,
   NormalizedWorkout,
   WorkoutIntervalsResponse,
   WorkoutNotesResponse,
@@ -30,31 +27,27 @@ import type {
   HRCurveComparison,
   ActivityHRCurve,
   WellnessTrends,
-  WhoopRecoveryTrendEntry,
   ActivityTotalsResponse,
   ZoneTotalEntry,
   SportTotals,
+  HeatZone,
 } from '../types/index.js';
-import { filterWhoopDuplicateFieldsFromTrends } from '../types/index.js';
 import type {
   GetWorkoutHistoryInput,
-  GetRecoveryTrendsInput,
   GetActivityTotalsInput,
 } from './types.js';
-import type { HeatZone } from '../types/index.js';
 
 export class HistoricalTools {
   constructor(
     private intervals: IntervalsClient,
-    private whoop: WhoopClient | null
   ) {}
 
   /**
-   * Get workout history with flexible date ranges, including matched Whoop data
+   * Get workout history with flexible date ranges
    */
   async getWorkoutHistory(
     params: GetWorkoutHistoryInput
-  ): Promise<WorkoutWithWhoop[]> {
+  ): Promise<NormalizedWorkout[]> {
     // Use athlete's timezone for date parsing
     const timezone = await this.intervals.getAthleteTimezone();
     const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
@@ -62,89 +55,9 @@ export class HistoricalTools {
     // Fetch Intervals.icu activities
     // Use skipExpensiveCalls since historical queries can return many activities
     // and per-activity API calls (heat zones, notes) would cause rate limiting
-    const workouts = await this.intervals.getActivities(startDate, endDate, params.sport, {
+    return await this.intervals.getActivities(startDate, endDate, params.sport, {
       skipExpensiveCalls: true,
     });
-
-    // Enrich with matched Whoop data
-    return enrichWorkoutsWithWhoop(workouts, this.whoop, startDate, endDate);
-  }
-
-  /**
-   * Get recovery trends over time.
-   * Returns entries with nested sleep and recovery objects.
-   */
-  async getRecoveryTrends(
-    params: GetRecoveryTrendsInput
-  ): Promise<{
-    data: WhoopRecoveryTrendEntry[];
-    summary: {
-      avg_recovery: number;
-      avg_hrv: number;
-      avg_sleep_hours: number;
-      min_recovery: number;
-      max_recovery: number;
-    };
-  }> {
-    if (!this.whoop) {
-      return {
-        data: [],
-        summary: {
-          avg_recovery: 0,
-          avg_hrv: 0,
-          avg_sleep_hours: 0,
-          min_recovery: 0,
-          max_recovery: 0,
-        },
-      };
-    }
-
-    // Use athlete's timezone for date parsing
-    const timezone = await this.intervals.getAthleteTimezone();
-    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
-
-    const data = await this.whoop.getRecoveries(startDate, endDate);
-
-    // Calculate summary statistics
-    const summary = this.calculateRecoverySummary(data);
-
-    return { data, summary };
-  }
-
-  private calculateRecoverySummary(data: WhoopRecoveryTrendEntry[]): {
-    avg_recovery: number;
-    avg_hrv: number;
-    avg_sleep_hours: number;
-    min_recovery: number;
-    max_recovery: number;
-  } {
-    if (data.length === 0) {
-      return {
-        avg_recovery: 0,
-        avg_hrv: 0,
-        avg_sleep_hours: 0,
-        min_recovery: 0,
-        max_recovery: 0,
-      };
-    }
-
-    const recoveryScores = data.map((d) => d.recovery.recovery_score);
-    const hrvValues = data.map((d) => d.recovery.hrv_rmssd);
-    // Calculate sleep hours from total_in_bed_time in sleep_summary
-    const sleepHours = data.map((d) => parseDurationToHours(d.sleep.sleep_summary.total_in_bed_time));
-
-    return {
-      avg_recovery: this.average(recoveryScores),
-      avg_hrv: this.average(hrvValues),
-      avg_sleep_hours: this.average(sleepHours),
-      min_recovery: Math.min(...recoveryScores),
-      max_recovery: Math.max(...recoveryScores),
-    };
-  }
-
-  private average(values: number[]): number {
-    if (values.length === 0) return 0;
-    return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
   }
 
   // ============================================
@@ -162,13 +75,7 @@ export class HistoricalTools {
     const timezone = await this.intervals.getAthleteTimezone();
     const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
 
-    const trends = await this.intervals.getWellnessTrends(startDate, endDate);
-
-    // Filter out Whoop-duplicate fields when Whoop is connected
-    // Whoop provides more detailed sleep/HRV metrics
-    return this.whoop
-      ? filterWhoopDuplicateFieldsFromTrends(trends)
-      : trends;
+    return await this.intervals.getWellnessTrends(startDate, endDate);
   }
 
   // ============================================

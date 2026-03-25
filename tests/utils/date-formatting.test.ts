@@ -107,8 +107,8 @@ describe('date-formatting', () => {
 
     it('should handle nested objects recursively', () => {
       const data = {
-        whoop: {
-          strain: {
+        summary: {
+          metrics: {
             date: '2024-12-15',
             activities: [
               {
@@ -120,8 +120,8 @@ describe('date-formatting', () => {
         },
       };
       const result = formatResponseDates(data, timezone);
-      expect(result.whoop.strain.date).toBe('Sunday, December 15, 2024');
-      expect(result.whoop.strain.activities[0].start_time).toBe(
+      expect(result.summary.metrics.date).toBe('Sunday, December 15, 2024');
+      expect(result.summary.metrics.activities[0].start_time).toBe(
         'Sunday, December 15, 2024 at 2:30 PM EST'
       );
     });

@@ -1,11 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { HistoricalTools } from '../../src/tools/historical.js';
 import { IntervalsClient } from '../../src/clients/intervals.js';
-import { WhoopClient } from '../../src/clients/whoop.js';
 import type {
   NormalizedWorkout,
-  WhoopRecoveryTrendEntry,
-  StrainActivity,
   WellnessTrends,
   TrainingLoadTrends,
   WorkoutIntervalsResponse,
@@ -16,12 +13,10 @@ import type {
 } from '../../src/types/index.js';
 
 vi.mock('../../src/clients/intervals.js');
-vi.mock('../../src/clients/whoop.js');
 
 describe('HistoricalTools', () => {
   let tools: HistoricalTools;
   let mockIntervalsClient: IntervalsClient;
-  let mockWhoopClient: WhoopClient;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -29,17 +24,11 @@ describe('HistoricalTools', () => {
     vi.setSystemTime(new Date('2024-12-15T12:00:00Z'));
 
     mockIntervalsClient = new IntervalsClient({ apiKey: 'test', athleteId: 'test' });
-    mockWhoopClient = new WhoopClient({
-      accessToken: 'test',
-      refreshToken: 'test',
-      clientId: 'test',
-      clientSecret: 'test',
-    });
 
     // Default timezone mock for all tests
     vi.mocked(mockIntervalsClient.getAthleteTimezone).mockResolvedValue('UTC');
 
-    tools = new HistoricalTools(mockIntervalsClient, mockWhoopClient);
+    tools = new HistoricalTools(mockIntervalsClient);
   });
 
   afterEach(() => {
@@ -66,23 +55,8 @@ describe('HistoricalTools', () => {
       },
     ];
 
-    const mockWhoopActivities: StrainActivity[] = [
-      {
-        id: 'whoop-1',
-        start_time: '2024-12-10T10:01:00Z',
-        end_time: '2024-12-10T11:00:00Z',
-        activity_type: 'Cycling',
-        duration: '0:59:00',
-        strain_score: 12.5,
-        average_heart_rate: 145,
-        max_heart_rate: 175,
-        calories: 650,
-      },
-    ];
-
-    it('should fetch workouts for ISO date range with Whoop matching', async () => {
+    it('should fetch workouts for ISO date range', async () => {
       vi.mocked(mockIntervalsClient.getActivities).mockResolvedValue(mockWorkouts);
-      vi.mocked(mockWhoopClient.getWorkouts).mockResolvedValue(mockWhoopActivities);
 
       const result = await tools.getWorkoutHistory({
         oldest: '2024-12-01',
@@ -90,11 +64,6 @@ describe('HistoricalTools', () => {
       });
 
       expect(result).toHaveLength(2);
-      // First workout should have matched Whoop data
-      expect(result[0].whoop).not.toBeNull();
-      expect(result[0].whoop?.strain_score).toBe(12.5);
-      // Second workout should not have matched Whoop data
-      expect(result[1].whoop).toBeNull();
       expect(mockIntervalsClient.getActivities).toHaveBeenCalledWith(
         '2024-12-01',
         '2024-12-15',
@@ -105,7 +74,6 @@ describe('HistoricalTools', () => {
 
     it('should parse natural language start date', async () => {
       vi.mocked(mockIntervalsClient.getActivities).mockResolvedValue(mockWorkouts);
-      vi.mocked(mockWhoopClient.getWorkouts).mockResolvedValue([]);
 
       await tools.getWorkoutHistory({
         oldest: '30 days ago',
@@ -121,7 +89,6 @@ describe('HistoricalTools', () => {
 
     it('should default newest to today', async () => {
       vi.mocked(mockIntervalsClient.getActivities).mockResolvedValue(mockWorkouts);
-      vi.mocked(mockWhoopClient.getWorkouts).mockResolvedValue([]);
 
       await tools.getWorkoutHistory({
         oldest: '2024-12-01',
@@ -137,7 +104,6 @@ describe('HistoricalTools', () => {
 
     it('should pass sport filter', async () => {
       vi.mocked(mockIntervalsClient.getActivities).mockResolvedValue([mockWorkouts[0]]);
-      vi.mocked(mockWhoopClient.getWorkouts).mockResolvedValue([]);
 
       await tools.getWorkoutHistory({
         oldest: '2024-12-01',
@@ -151,168 +117,10 @@ describe('HistoricalTools', () => {
         { skipExpensiveCalls: true }
       );
     });
-
-    it('should return workouts without Whoop data when Whoop client is not configured', async () => {
-      const toolsWithoutWhoop = new HistoricalTools(mockIntervalsClient, null);
-      vi.mocked(mockIntervalsClient.getActivities).mockResolvedValue(mockWorkouts);
-
-      const result = await toolsWithoutWhoop.getWorkoutHistory({
-        oldest: '2024-12-01',
-      });
-
-      expect(result).toHaveLength(2);
-      expect(result[0].whoop).toBeNull();
-      expect(result[1].whoop).toBeNull();
-    });
-  });
-
-  describe('getRecoveryTrends', () => {
-    const mockRecoveries: WhoopRecoveryTrendEntry[] = [
-      {
-        date: '2024-12-13',
-        sleep: {
-          sleep_summary: {
-            total_in_bed_time: '8:00:00',
-            total_awake_time: '0:30:00',
-            total_no_data_time: '0:00:00',
-            total_light_sleep_time: '3:30:00',
-            total_slow_wave_sleep_time: '2:00:00',
-            total_rem_sleep_time: '2:00:00',
-            total_restorative_sleep: '4:00:00',
-            sleep_cycle_count: 4,
-            disturbance_count: 2,
-          },
-          sleep_needed: {
-            total_sleep_needed: '7:30:00',
-            baseline: '7:00:00',
-            need_from_sleep_debt: '0:15:00',
-            need_from_recent_strain: '0:15:00',
-            need_from_recent_nap: '0:00:00',
-          },
-          sleep_performance_percentage: 85,
-          sleep_performance_level: 'OPTIMAL',
-          sleep_performance_level_description: 'Optimal sleep',
-        },
-        recovery: {
-          recovery_score: 80,
-          hrv_rmssd: 60,
-          resting_heart_rate: 52,
-          recovery_level: 'SUFFICIENT',
-          recovery_level_description: 'Sufficient recovery',
-        },
-      },
-      {
-        date: '2024-12-14',
-        sleep: {
-          sleep_summary: {
-            total_in_bed_time: '7:00:00',
-            total_awake_time: '0:30:00',
-            total_no_data_time: '0:00:00',
-            total_light_sleep_time: '3:00:00',
-            total_slow_wave_sleep_time: '1:30:00',
-            total_rem_sleep_time: '2:00:00',
-            total_restorative_sleep: '3:30:00',
-            sleep_cycle_count: 3,
-            disturbance_count: 4,
-          },
-          sleep_needed: {
-            total_sleep_needed: '7:30:00',
-            baseline: '7:00:00',
-            need_from_sleep_debt: '0:20:00',
-            need_from_recent_strain: '0:10:00',
-            need_from_recent_nap: '0:00:00',
-          },
-          sleep_performance_percentage: 75,
-          sleep_performance_level: 'SUFFICIENT',
-          sleep_performance_level_description: 'Sufficient sleep',
-        },
-        recovery: {
-          recovery_score: 70,
-          hrv_rmssd: 55,
-          resting_heart_rate: 54,
-          recovery_level: 'ADEQUATE',
-          recovery_level_description: 'Adequate recovery',
-        },
-      },
-      {
-        date: '2024-12-15',
-        sleep: {
-          sleep_summary: {
-            total_in_bed_time: '8:30:00',
-            total_awake_time: '0:30:00',
-            total_no_data_time: '0:00:00',
-            total_light_sleep_time: '4:00:00',
-            total_slow_wave_sleep_time: '2:00:00',
-            total_rem_sleep_time: '2:00:00',
-            total_restorative_sleep: '4:00:00',
-            sleep_cycle_count: 4,
-            disturbance_count: 1,
-          },
-          sleep_needed: {
-            total_sleep_needed: '7:30:00',
-            baseline: '7:00:00',
-            need_from_sleep_debt: '0:15:00',
-            need_from_recent_strain: '0:15:00',
-            need_from_recent_nap: '0:00:00',
-          },
-          sleep_performance_percentage: 95,
-          sleep_performance_level: 'OPTIMAL',
-          sleep_performance_level_description: 'Optimal sleep',
-        },
-        recovery: {
-          recovery_score: 90,
-          hrv_rmssd: 70,
-          resting_heart_rate: 50,
-          recovery_level: 'SUFFICIENT',
-          recovery_level_description: 'Sufficient recovery',
-        },
-      },
-    ];
-
-    it('should return recovery data with summary', async () => {
-      vi.mocked(mockWhoopClient.getRecoveries).mockResolvedValue(mockRecoveries);
-
-      const result = await tools.getRecoveryTrends({
-        oldest: '2024-12-13',
-        newest: '2024-12-15',
-      });
-
-      expect(result.data).toEqual(mockRecoveries);
-      expect(result.summary.avg_recovery).toBe(80); // (80 + 70 + 90) / 3
-      expect(result.summary.avg_hrv).toBeCloseTo(61.7, 1); // (60 + 55 + 70) / 3
-      expect(result.summary.avg_sleep_hours).toBeCloseTo(7.8, 1); // (8 + 7 + 8.5) / 3 based on total_in_bed_time
-      expect(result.summary.min_recovery).toBe(70);
-      expect(result.summary.max_recovery).toBe(90);
-    });
-
-    it('should return empty summary when no Whoop client', async () => {
-      const toolsWithoutWhoop = new HistoricalTools(mockIntervalsClient, null);
-
-      const result = await toolsWithoutWhoop.getRecoveryTrends({
-        oldest: '2024-12-13',
-      });
-
-      expect(result.data).toEqual([]);
-      expect(result.summary.avg_recovery).toBe(0);
-    });
-
-    it('should handle empty recovery data', async () => {
-      vi.mocked(mockWhoopClient.getRecoveries).mockResolvedValue([]);
-
-      const result = await tools.getRecoveryTrends({
-        oldest: '2024-12-13',
-      });
-
-      expect(result.data).toEqual([]);
-      expect(result.summary.avg_recovery).toBe(0);
-      expect(result.summary.min_recovery).toBe(0);
-      expect(result.summary.max_recovery).toBe(0);
-    });
   });
 
   describe('getWellnessTrends', () => {
-    // Full wellness data (as returned from API)
-    const mockWellnessTrendsFull: WellnessTrends = {
+    const mockWellnessTrends: WellnessTrends = {
       period_days: 7,
       oldest: '2024-12-08',
       newest: '2024-12-15',
@@ -368,56 +176,22 @@ describe('HistoricalTools', () => {
       ],
     };
 
-    // Expected filtered wellness (Whoop-duplicate fields removed)
-    const mockWellnessTrendsFiltered: WellnessTrends = {
-      period_days: 7,
-      oldest: '2024-12-08',
-      newest: '2024-12-15',
-      data: [
-        {
-          date: '2024-12-08',
-          weight: '74.5 kg',
-          soreness: 2,
-          fatigue: 2,
-        },
-        {
-          date: '2024-12-10',
-          weight: '74.3 kg',
-          soreness: 1,
-          fatigue: 1,
-        },
-        {
-          date: '2024-12-12',
-          weight: '74.8 kg',
-          soreness: 3,
-          fatigue: 3,
-        },
-        {
-          date: '2024-12-15',
-          weight: '74.6 kg',
-          soreness: 1,
-          fatigue: 2,
-        },
-      ],
-    };
-
-    it('should return wellness trends with Whoop-duplicate fields filtered when Whoop is connected', async () => {
-      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrendsFull);
+    it('should return wellness trends', async () => {
+      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrends);
 
       const result = await tools.getWellnessTrends({
         oldest: '2024-12-08',
         newest: '2024-12-15',
       });
 
-      // Whoop-duplicate fields are filtered when Whoop is connected
-      expect(result).toEqual(mockWellnessTrendsFiltered);
+      expect(result).toEqual(mockWellnessTrends);
       expect(result.period_days).toBe(7);
       expect(result.data).toHaveLength(4);
       expect(mockIntervalsClient.getWellnessTrends).toHaveBeenCalledWith('2024-12-08', '2024-12-15');
     });
 
-    it('should filter Whoop-duplicate fields from wellness trends', async () => {
-      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrendsFull);
+    it('should return all wellness fields including sleep and HR data', async () => {
+      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrends);
 
       const result = await tools.getWellnessTrends({
         oldest: '2024-12-08',
@@ -426,39 +200,19 @@ describe('HistoricalTools', () => {
 
       const firstEntry = result.data[0];
       expect(firstEntry.date).toBe('2024-12-08');
-      // Non-duplicate fields are present
       expect(firstEntry.weight).toBe('74.5 kg');
       expect(firstEntry.soreness).toBe(2);
       expect(firstEntry.fatigue).toBe(2);
-      // Whoop-duplicate fields are filtered
-      expect(firstEntry.resting_hr).toBeUndefined();
-      expect(firstEntry.hrv).toBeUndefined();
-      expect(firstEntry.sleep_duration).toBeUndefined();
-      expect(firstEntry.sleep_score).toBeUndefined();
-      expect(firstEntry.sleep_quality).toBeUndefined();
-      expect(firstEntry.readiness).toBeUndefined();
-      expect(firstEntry.respiration).toBeUndefined();
-      expect(firstEntry.spo2).toBeUndefined();
-    });
-
-    it('should return full wellness trends when Whoop is not connected', async () => {
-      const toolsWithoutWhoop = new HistoricalTools(mockIntervalsClient, null);
-      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrendsFull);
-
-      const result = await toolsWithoutWhoop.getWellnessTrends({
-        oldest: '2024-12-08',
-        newest: '2024-12-15',
-      });
-
-      // Full wellness data when Whoop is not connected
-      expect(result).toEqual(mockWellnessTrendsFull);
-      expect(result.data[0].resting_hr).toBe(52);
-      expect(result.data[0].hrv).toBe(38.5);
-      expect(result.data[0].sleep_duration).toBe('7h 30m');
+      expect(firstEntry.resting_hr).toBe(52);
+      expect(firstEntry.hrv).toBe(38.5);
+      expect(firstEntry.sleep_duration).toBe('7h 30m');
+      expect(firstEntry.sleep_score).toBe(85);
+      expect(firstEntry.sleep_quality).toBe(1);
+      expect(firstEntry.readiness).toBe(70);
     });
 
     it('should parse natural language start date', async () => {
-      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrendsFull);
+      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrends);
 
       await tools.getWellnessTrends({
         oldest: '7 days ago',
@@ -468,7 +222,7 @@ describe('HistoricalTools', () => {
     });
 
     it('should default newest to today', async () => {
-      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrendsFull);
+      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(mockWellnessTrends);
 
       await tools.getWellnessTrends({
         oldest: '2024-12-08',
@@ -492,34 +246,6 @@ describe('HistoricalTools', () => {
 
       expect(result.data).toEqual([]);
       expect(result.period_days).toBe(7);
-    });
-
-    it('should filter entries that only have Whoop-duplicate fields', async () => {
-      // When entries only have Whoop-duplicate fields, they should be filtered out entirely
-      const partialTrends: WellnessTrends = {
-        period_days: 3,
-        oldest: '2024-12-13',
-        newest: '2024-12-15',
-        data: [
-          { date: '2024-12-13', weight: '74.2 kg' },
-          { date: '2024-12-14', resting_hr: 53, hrv: 40.2 }, // Only Whoop-duplicate fields
-          { date: '2024-12-15', weight: '74.5 kg', sleep_duration: '7h 45m', sleep_score: 88 },
-        ],
-      };
-      vi.mocked(mockIntervalsClient.getWellnessTrends).mockResolvedValue(partialTrends);
-
-      const result = await tools.getWellnessTrends({
-        oldest: '2024-12-13',
-        newest: '2024-12-15',
-      });
-
-      // Entry with only Whoop-duplicate fields is filtered out
-      expect(result.data).toHaveLength(2);
-      expect(result.data[0].date).toBe('2024-12-13');
-      expect(result.data[0].weight).toBe('74.2 kg');
-      expect(result.data[1].date).toBe('2024-12-15');
-      expect(result.data[1].weight).toBe('74.5 kg');
-      expect(result.data[1].sleep_duration).toBeUndefined();
     });
   });
 
@@ -755,7 +481,7 @@ describe('HistoricalTools', () => {
     it('should fetch workout weather for activity', async () => {
       vi.mocked(mockIntervalsClient.getActivityWeather).mockResolvedValue({
         activity_id: 'i12345',
-        weather_description: 'Sunny, 22°C, light wind from NW at 10 km/h',
+        weather_description: 'Sunny, 22 C, light wind from NW at 10 km/h',
       });
 
       const result = await tools.getWorkoutWeather('i12345');
@@ -1125,31 +851,6 @@ describe('HistoricalTools', () => {
 
       expect(result.activity_count).toBe(0);
       expect(result.summary.max_5s).toBeNull();
-    });
-  });
-
-  describe('error handling across methods', () => {
-    it('should handle Whoop errors gracefully in getWorkoutHistory', async () => {
-      const mockWorkouts: NormalizedWorkout[] = [
-        {
-          id: '1',
-          start_time: '2024-12-10T10:00:00+00:00',
-          activity_type: 'Cycling',
-          duration: '1:00:00',
-          source: 'intervals.icu',
-        },
-      ];
-
-      vi.mocked(mockIntervalsClient.getActivities).mockResolvedValue(mockWorkouts);
-      vi.mocked(mockWhoopClient.getWorkouts).mockRejectedValue(new Error('Whoop API down'));
-
-      // Should not throw, just return workouts without Whoop data
-      const result = await tools.getWorkoutHistory({
-        oldest: '2024-12-01',
-      });
-
-      expect(result).toHaveLength(1);
-      expect(result[0].whoop).toBeNull();
     });
   });
 

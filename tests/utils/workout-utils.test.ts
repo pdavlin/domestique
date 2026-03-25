@@ -2,19 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   DOMESTIQUE_TAG,
   areWorkoutsSimilar,
-  matchWhoopActivity,
-  enrichWorkoutsWithWhoop,
   normalizeActivityTypeToSport,
   sportToActivityType,
   fetchAndMergePlannedWorkouts,
 } from '../../src/utils/workout-utils.js';
 import { IntervalsClient } from '../../src/clients/intervals.js';
-import { WhoopClient } from '../../src/clients/whoop.js';
 import { TrainerRoadClient } from '../../src/clients/trainerroad.js';
-import type { PlannedWorkout, NormalizedWorkout, StrainActivity } from '../../src/types/index.js';
+import type { PlannedWorkout } from '../../src/types/index.js';
 
 vi.mock('../../src/clients/intervals.js');
-vi.mock('../../src/clients/whoop.js');
 vi.mock('../../src/clients/trainerroad.js');
 
 describe('workout-utils', () => {
@@ -94,162 +90,6 @@ describe('workout-utils', () => {
       const a = createPlannedWorkout({ name: 'Sprint Intervals', expected_tss: 80 });
       const b = createPlannedWorkout({ name: 'Recovery Ride', expected_tss: 30 });
       expect(areWorkoutsSimilar(a, b)).toBe(false);
-    });
-  });
-
-  describe('matchWhoopActivity', () => {
-    const createWorkout = (
-      overrides: Partial<NormalizedWorkout> = {}
-    ): NormalizedWorkout => ({
-      id: 'w1',
-      start_time: '2024-12-15T10:00:00Z',
-      activity_type: 'Cycling',
-      duration_seconds: 3600,
-      source: 'intervals.icu',
-      ...overrides,
-    });
-
-    const createStrainActivity = (
-      overrides: Partial<StrainActivity> = {}
-    ): StrainActivity => ({
-      id: 'a1',
-      start_time: '2024-12-15T10:02:00Z',
-      end_time: '2024-12-15T11:02:00Z',
-      activity_type: 'Cycling',
-      strain_score: 10.5,
-      average_heart_rate: 145,
-      max_heart_rate: 175,
-      calories: 500,
-      distance: 25000,
-      elevation_gain: 300,
-      zone_durations: [600, 1200, 900, 600, 300],
-      ...overrides,
-    });
-
-    it('should return matched Whoop data for matching activity', () => {
-      const workout = createWorkout();
-      const activities = [createStrainActivity()];
-
-      const result = matchWhoopActivity(workout, activities);
-
-      expect(result).not.toBeNull();
-      expect(result?.strain_score).toBe(10.5);
-      expect(result?.average_heart_rate).toBe(145);
-      expect(result?.max_heart_rate).toBe(175);
-      expect(result?.calories).toBe(500);
-      expect(result?.distance).toBe(25000);
-      expect(result?.elevation_gain).toBe(300);
-      expect(result?.zone_durations).toEqual([600, 1200, 900, 600, 300]);
-    });
-
-    it('should return null when no matching activity found', () => {
-      const workout = createWorkout();
-      const activities = [
-        createStrainActivity({
-          start_time: '2024-12-15T15:00:00Z', // Too far from workout
-        }),
-      ];
-
-      const result = matchWhoopActivity(workout, activities);
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null when activities array is empty', () => {
-      const workout = createWorkout();
-
-      const result = matchWhoopActivity(workout, []);
-
-      expect(result).toBeNull();
-    });
-
-    it('should handle undefined optional fields', () => {
-      const workout = createWorkout();
-      const activities = [
-        {
-          id: 'a1',
-          start_time: '2024-12-15T10:02:00Z',
-          end_time: '2024-12-15T11:02:00Z',
-          activity_type: 'Cycling' as const,
-          strain_score: 10.5,
-          // No optional fields
-        },
-      ];
-
-      const result = matchWhoopActivity(workout, activities);
-
-      expect(result).not.toBeNull();
-      expect(result?.strain_score).toBe(10.5);
-      expect(result?.average_heart_rate).toBeUndefined();
-      expect(result?.calories).toBeUndefined();
-    });
-  });
-
-  describe('enrichWorkoutsWithWhoop', () => {
-    const createWorkout = (
-      overrides: Partial<NormalizedWorkout> = {}
-    ): NormalizedWorkout => ({
-      id: 'w1',
-      start_time: '2024-12-15T10:00:00Z',
-      activity_type: 'Cycling',
-      duration_seconds: 3600,
-      source: 'intervals.icu',
-      ...overrides,
-    });
-
-    const mockWhoopActivities: StrainActivity[] = [
-      {
-        id: 'a1',
-        start_time: '2024-12-15T10:02:00Z',
-        end_time: '2024-12-15T11:02:00Z',
-        activity_type: 'Cycling',
-        strain_score: 10.5,
-        average_heart_rate: 145,
-        max_heart_rate: 175,
-        calories: 500,
-      },
-    ];
-
-    it('should return workouts with null whoop when no whoop client', async () => {
-      const workouts = [createWorkout()];
-      const result = await enrichWorkoutsWithWhoop(workouts, null, '2024-12-15', '2024-12-15');
-
-      expect(result).toHaveLength(1);
-      expect(result[0].whoop).toBeNull();
-      expect(result[0].id).toBe('w1');
-    });
-
-    it('should enrich workouts with matched Whoop data', async () => {
-      const mockWhoop = new WhoopClient({
-        accessToken: 'test',
-        refreshToken: 'test',
-        clientId: 'test',
-        clientSecret: 'test',
-      });
-      vi.mocked(mockWhoop.getWorkouts).mockResolvedValue(mockWhoopActivities);
-
-      const workouts = [createWorkout()];
-      const result = await enrichWorkoutsWithWhoop(workouts, mockWhoop, '2024-12-15', '2024-12-15');
-
-      expect(result).toHaveLength(1);
-      expect(result[0].whoop).not.toBeNull();
-      expect(result[0].whoop?.strain_score).toBe(10.5);
-    });
-
-    it('should gracefully handle Whoop fetch errors', async () => {
-      const mockWhoop = new WhoopClient({
-        accessToken: 'test',
-        refreshToken: 'test',
-        clientId: 'test',
-        clientSecret: 'test',
-      });
-      vi.mocked(mockWhoop.getWorkouts).mockRejectedValue(new Error('API Error'));
-
-      const workouts = [createWorkout()];
-      const result = await enrichWorkoutsWithWhoop(workouts, mockWhoop, '2024-12-15', '2024-12-15');
-
-      expect(result).toHaveLength(1);
-      expect(result[0].whoop).toBeNull();
     });
   });
 

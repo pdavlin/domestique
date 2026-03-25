@@ -72,12 +72,6 @@ export function validateEnvironment(): void {
     'INTERVALS_ATHLETE_ID',
   ];
 
-  // Whoop requires client credentials (tokens are stored in Redis)
-  const whoopClientId = process.env.WHOOP_CLIENT_ID;
-  if (whoopClientId) {
-    required.push('WHOOP_CLIENT_SECRET', 'REDIS_URL');
-  }
-
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
@@ -89,7 +83,6 @@ export function validateEnvironment(): void {
 
 /**
  * Get configuration from environment variables.
- * Note: Whoop tokens are loaded from Redis, not env vars.
  */
 export function getConfig() {
   return {
@@ -99,14 +92,6 @@ export function getConfig() {
       apiKey: process.env.INTERVALS_API_KEY!,
       athleteId: process.env.INTERVALS_ATHLETE_ID!,
     },
-    whoop: process.env.WHOOP_CLIENT_ID
-      ? {
-          accessToken: '', // Loaded from Redis
-          refreshToken: '', // Loaded from Redis
-          clientId: process.env.WHOOP_CLIENT_ID,
-          clientSecret: process.env.WHOOP_CLIENT_SECRET!,
-        }
-      : null,
     trainerRoad: process.env.TRAINERROAD_CALENDAR_URL
       ? {
           calendarUrl: process.env.TRAINERROAD_CALENDAR_URL,

@@ -18,18 +18,6 @@ vi.mock('../../src/clients/intervals.js', () => ({
   }),
 }));
 
-vi.mock('../../src/clients/whoop.js', () => ({
-  WhoopClient: vi.fn().mockImplementation(function() {
-    return {
-      getTodayRecovery: vi.fn().mockResolvedValue(null),
-      getStrainData: vi.fn().mockResolvedValue([]),
-      getRecoveries: vi.fn().mockResolvedValue([]),
-      getWorkouts: vi.fn().mockResolvedValue([]),
-      setTimezoneGetter: vi.fn(),
-    };
-  }),
-}));
-
 vi.mock('../../src/clients/trainerroad.js', () => ({
   TrainerRoadClient: vi.fn().mockImplementation(function() {
     return {
@@ -47,12 +35,6 @@ describe('ToolRegistry', () => {
     vi.clearAllMocks();
     registry = new ToolRegistry({
       intervals: { apiKey: 'test', athleteId: 'test' },
-      whoop: {
-        accessToken: 'test',
-        refreshToken: 'test',
-        clientId: 'test',
-        clientSecret: 'test',
-      },
       trainerroad: { calendarUrl: 'https://test.com' },
     });
   });
@@ -62,25 +44,9 @@ describe('ToolRegistry', () => {
       expect(registry).toBeDefined();
     });
 
-    it('should create registry without Whoop client', () => {
-      const registryWithoutWhoop = new ToolRegistry({
-        intervals: { apiKey: 'test', athleteId: 'test' },
-        whoop: null,
-        trainerroad: { calendarUrl: 'https://test.com' },
-      });
-
-      expect(registryWithoutWhoop).toBeDefined();
-    });
-
     it('should create registry without TrainerRoad client', () => {
       const registryWithoutTr = new ToolRegistry({
         intervals: { apiKey: 'test', athleteId: 'test' },
-        whoop: {
-          accessToken: 'test',
-          refreshToken: 'test',
-          clientId: 'test',
-          clientSecret: 'test',
-        },
         trainerroad: null,
       });
 
@@ -101,9 +67,7 @@ describe('ToolRegistry', () => {
 
       expect(registeredTools).toContain('get_todays_summary');
       expect(registeredTools).toContain('get_athlete_profile');
-      expect(registeredTools).toContain('get_strain_history');
       expect(registeredTools).toContain('get_workout_history');
-      expect(registeredTools).toContain('get_recovery_trends');
       expect(registeredTools).toContain('get_upcoming_workouts');
       // Analysis tools
       expect(registeredTools).toContain('get_training_load_trends');
@@ -133,7 +97,7 @@ describe('ToolRegistry', () => {
       // Cycling workout tools
       expect(registeredTools).toContain('get_cycling_workout_syntax');
       expect(registeredTools).toContain('create_cycling_workout');
-      expect(registeredTools.length).toBe(27);
+      expect(registeredTools.length).toBe(25);
     });
 
     it('should call server.registerTool for each tool', () => {
@@ -143,7 +107,7 @@ describe('ToolRegistry', () => {
 
       registry.registerTools(mockServer as any);
 
-      expect(mockServer.registerTool).toHaveBeenCalledTimes(27);
+      expect(mockServer.registerTool).toHaveBeenCalledTimes(25);
     });
 
     it('should pass config object with title, description, and annotations to each tool', () => {

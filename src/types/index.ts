@@ -26,7 +26,7 @@ export interface NormalizedWorkout {
   intensity_factor?: number;
   elevation_gain?: string; // Human-readable, e.g., "500 m"
   calories?: number;
-  source: 'intervals.icu' | 'whoop' | 'trainerroad' | 'strava';
+  source: 'intervals.icu' | 'trainerroad' | 'strava';
 
   // Activity URLs
   /** Intervals.icu activity URL (always present for Intervals.icu activities) */
@@ -174,203 +174,6 @@ export interface NormalizedWorkout {
 export interface ZoneTime {
   zone_id: string; // e.g., "Z1", "Z2", "SS" for sweetspot
   seconds: number;
-}
-
-/**
- * Whoop activity data matched to an Intervals.icu workout.
- *
- * IMPORTANT: Whoop uses proprietary algorithms for strain and recovery scores.
- * These values are specific to Whoop's methodology and may not be directly
- * comparable to other training load metrics like TSS.
- */
-export interface WhoopMatchedData {
-  strain_score: number;
-  average_heart_rate?: number;
-  max_heart_rate?: number;
-  calories?: number;
-  distance?: string; // Human-readable, e.g., "45.2 km"
-  elevation_gain?: string; // Human-readable, e.g., "500 m"
-  zone_durations?: WhoopZoneDurations;
-}
-
-/**
- * Extended workout with optional matched Whoop data.
- * The whoop field is null when Whoop is not configured or no match found.
- */
-export interface WorkoutWithWhoop extends NormalizedWorkout {
-  whoop: WhoopMatchedData | null;
-}
-
-// ============================================
-// Whoop Data Types
-// ============================================
-
-/**
- * Body measurements from Whoop API.
- * All values in metric units as returned by Whoop.
- */
-export interface WhoopBodyMeasurements {
-  /** Height in meters, rounded to 2 decimals */
-  height_meter: number;
-  /** Weight in kilograms, rounded to 2 decimals */
-  weight_kilogram: number;
-  /** Maximum heart rate in BPM */
-  max_heart_rate: number;
-}
-
-/**
- * Sleep summary data (renamed from Whoop's stage_summary).
- * All durations are humanized (e.g., "8:24:32").
- */
-export interface WhoopSleepSummary {
-  /** Total time in bed, humanized (e.g., "8:24:32") */
-  total_in_bed_time: string;
-  /** Total awake time during sleep, humanized */
-  total_awake_time: string;
-  /** Total time with no data, humanized */
-  total_no_data_time: string;
-  /** Total light sleep time, humanized */
-  total_light_sleep_time: string;
-  /** Total slow wave (deep) sleep time, humanized */
-  total_slow_wave_sleep_time: string;
-  /** Total REM sleep time, humanized */
-  total_rem_sleep_time: string;
-  /** Total restorative sleep (slow wave + REM), humanized */
-  total_restorative_sleep: string;
-  /** Number of sleep cycles completed */
-  sleep_cycle_count: number;
-  /** Number of disturbances during sleep */
-  disturbance_count: number;
-}
-
-/**
- * Sleep need breakdown from Whoop.
- * All durations are humanized (e.g., "7:36:35").
- */
-export interface WhoopSleepNeeded {
-  /** Total sleep needed (computed sum), humanized */
-  total_sleep_needed: string;
-  /** Baseline sleep need, humanized */
-  baseline: string;
-  /** Additional need from accumulated sleep debt, humanized */
-  need_from_sleep_debt: string;
-  /** Additional need from recent strain, humanized */
-  need_from_recent_strain: string;
-  /** Reduction in need from recent naps (can be negative), humanized */
-  need_from_recent_nap: string;
-}
-
-/**
- * Whoop nap data.
- * Similar to sleep data but without sleep need/performance metrics
- * since naps contribute to sleep need reduction rather than being measured against it.
- */
-export interface WhoopNapData {
-  /** Nap summary with stage breakdown */
-  nap_summary: WhoopSleepSummary;
-  /** Respiratory rate in breaths per minute, rounded to 2 decimals */
-  respiratory_rate?: number;
-  /** The approximate time the nap started, in the user's local timezone */
-  nap_start: string;
-  /** The approximate time the nap ended, in the user's local timezone */
-  nap_end: string;
-}
-
-/**
- * Whoop sleep data (separated from recovery).
- */
-export interface WhoopSleepData {
-  /** Sleep summary with stage breakdown */
-  sleep_summary: WhoopSleepSummary;
-  /** Sleep need breakdown */
-  sleep_needed: WhoopSleepNeeded;
-  /** Respiratory rate in breaths per minute, rounded to 2 decimals */
-  respiratory_rate?: number;
-  /** Sleep performance vs. sleep need (0-100%), rounded to 2 decimals */
-  sleep_performance_percentage: number;
-  /** Sleep consistency score (0-100%), rounded to 2 decimals */
-  sleep_consistency_percentage?: number;
-  /** Sleep efficiency percentage (0-100%), rounded to 2 decimals */
-  sleep_efficiency_percentage?: number;
-  /** Sleep performance level: OPTIMAL (≥85%), SUFFICIENT (70-85%), POOR (<70%) */
-  sleep_performance_level: 'OPTIMAL' | 'SUFFICIENT' | 'POOR';
-  /** Human-readable sleep performance description from Whoop */
-  sleep_performance_level_description: string;
-  /** The approximate time the user fell asleep, in the user's local timezone */
-  sleep_start?: string;
-  /** The approximate time the user woke up, in the user's local timezone */
-  sleep_end?: string;
-  /** Naps taken during this cycle */
-  naps?: WhoopNapData[];
-}
-
-/**
- * Whoop recovery data (separated from sleep).
- */
-export interface WhoopRecoveryData {
-  /** Recovery score (0-100%) */
-  recovery_score: number;
-  /** Recovery level: SUFFICIENT (≥67%), ADEQUATE (34-66%), LOW (<34%) */
-  recovery_level: 'SUFFICIENT' | 'ADEQUATE' | 'LOW';
-  /** Human-readable description from Whoop */
-  recovery_level_description: string;
-  /** Heart Rate Variability in milliseconds (RMSSD), rounded to 2 decimals */
-  hrv_rmssd: number;
-  /** Resting heart rate in BPM */
-  resting_heart_rate: number;
-  /** Blood oxygen saturation (0-100%), rounded to 2 decimals */
-  spo2_percentage?: number;
-  /** Skin temperature in Celsius, rounded to 2 decimals */
-  skin_temp_celsius?: number;
-}
-
-/**
- * Combined sleep and recovery entry for a single day.
- * Used in recovery trends.
- */
-export interface WhoopRecoveryTrendEntry {
-  date: string;
-  sleep: WhoopSleepData;
-  recovery: WhoopRecoveryData;
-}
-
-// Whoop strain data
-export interface StrainData {
-  date: string;
-  strain_score: number;
-  /** Strain level: LIGHT (0-9), MODERATE (10-13), HIGH (14-17), ALL_OUT (18-21) */
-  strain_level: 'LIGHT' | 'MODERATE' | 'HIGH' | 'ALL_OUT';
-  /** Human-readable description from Whoop */
-  strain_level_description: string;
-  average_heart_rate?: number;
-  max_heart_rate?: number;
-  calories?: number;
-  activities: StrainActivity[];
-}
-
-// Whoop HR zone durations (human-readable, e.g., "0:05:30")
-export interface WhoopZoneDurations {
-  zone_0: string; // Below zone 1
-  zone_1: string; // 50-60% max HR
-  zone_2: string; // 60-70% max HR
-  zone_3: string; // 70-80% max HR
-  zone_4: string; // 80-90% max HR
-  zone_5: string; // 90-100% max HR
-}
-
-export interface StrainActivity {
-  id: string;
-  activity_type: ActivityType;
-  start_time: string; // ISO 8601 (YYYY-MM-DDTHH:mm:ss±HH:mm) in user's local timezone
-  end_time: string; // ISO 8601 (YYYY-MM-DDTHH:mm:ss±HH:mm) in user's local timezone
-  duration: string; // Human-readable, e.g., "1:30:00"
-  strain_score: number;
-  average_heart_rate?: number;
-  max_heart_rate?: number;
-  calories?: number;
-  distance?: string; // Human-readable, e.g., "45.2 km"
-  elevation_gain?: string; // Human-readable, e.g., "500 m"
-  zone_durations?: WhoopZoneDurations;
 }
 
 // Planned workout from calendar
@@ -587,23 +390,10 @@ export interface FitnessMetrics {
   atl_load?: number; // Weighted contribution to ATL from this day's training
 }
 
-// Activity matching result
-export interface MatchedActivity {
-  intervals_workout?: NormalizedWorkout;
-  whoop_activity?: StrainActivity;
-}
-
 // API client configuration
 export interface IntervalsConfig {
   apiKey: string;
   athleteId: string;
-}
-
-export interface WhoopConfig {
-  accessToken: string;
-  refreshToken: string;
-  clientId: string;
-  clientSecret: string;
 }
 
 export interface TrainerRoadConfig {
@@ -851,62 +641,6 @@ export interface WellnessTrends {
   data: DailyWellness[];
 }
 
-/**
- * Fields that duplicate Whoop metrics and should be excluded when Whoop is connected.
- * Whoop provides more detailed versions of these metrics.
- */
-const WHOOP_DUPLICATE_FIELDS: (keyof WellnessFields)[] = [
-  'resting_hr',
-  'hrv',
-  'hrv_sdnn',
-  'sleep_duration',
-  'sleep_score',
-  'sleep_quality',
-  'avg_sleeping_hr',
-  'readiness',
-  'respiration',
-  'spo2',
-];
-
-/**
- * Filter out wellness fields that duplicate Whoop metrics.
- * Used when Whoop is connected since Whoop provides more detailed data.
- */
-export function filterWhoopDuplicateFields<T extends WellnessFields>(
-  wellness: T | null
-): T | null {
-  if (!wellness) return null;
-
-  const filtered = { ...wellness };
-  for (const field of WHOOP_DUPLICATE_FIELDS) {
-    delete filtered[field];
-  }
-
-  // Check if any fields remain (excluding 'date' for DailyWellness)
-  const remainingKeys = Object.keys(filtered).filter((k) => k !== 'date');
-  if (remainingKeys.length === 0) {
-    return null;
-  }
-
-  return filtered;
-}
-
-/**
- * Filter Whoop-duplicate fields from wellness trends data.
- */
-export function filterWhoopDuplicateFieldsFromTrends(
-  trends: WellnessTrends
-): WellnessTrends {
-  const filteredData = trends.data
-    .map((entry) => filterWhoopDuplicateFields(entry))
-    .filter((entry): entry is DailyWellness => entry !== null);
-
-  return {
-    ...trends,
-    data: filteredData,
-  };
-}
-
 // ============================================
 // Workout Intervals
 // ============================================
@@ -1002,40 +736,20 @@ export interface WorkoutNotesResponse {
 // ============================================
 
 /**
- * Whoop data for the daily summary.
- * All Whoop data is nested under this object for clarity.
- */
-export interface DailySummaryWhoop {
-  /** Body measurements from Whoop, null if unavailable */
-  body_measurements: WhoopBodyMeasurements | null;
-  /** Today's Whoop strain data with insight fields, null if unavailable */
-  strain: StrainData | null;
-  /** Today's Whoop sleep data, null if unavailable */
-  sleep: WhoopSleepData | null;
-  /** Today's Whoop recovery data, null if unavailable */
-  recovery: WhoopRecoveryData | null;
-}
-
-/**
- * Complete daily summary combining recovery, strain, and workout data.
- * Returned by get_daily_summary tool.
- *
- * Note: Whoop insight fields (recovery_level, strain_level, sleep_performance_level, etc.)
- * are included in the recovery and strain objects within the whoop property.
+ * Complete daily summary combining fitness, wellness, and workout data.
+ * Returned by get_todays_summary tool.
  */
 export interface DailySummary {
   /** Current time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss±HH:mm) in the user's local timezone */
   current_time: string;
-  /** Today's Whoop recovery and strain data */
-  whoop: DailySummaryWhoop;
   /** Today's fitness metrics (CTL/ATL/TSB) from Intervals.icu, null if unavailable */
   fitness: FitnessMetrics | null;
   /** Today's wellness data (weight, etc.) from Intervals.icu, null if unavailable */
   wellness: WellnessData | null;
   /** Planned workouts from TrainerRoad and Intervals.icu */
   planned_workouts: PlannedWorkout[];
-  /** Completed workouts from Intervals.icu with matched Whoop data */
-  completed_workouts: WorkoutWithWhoop[];
+  /** Completed workouts from Intervals.icu */
+  completed_workouts: NormalizedWorkout[];
   /** Race scheduled for today (if any) */
   scheduled_race: Race | null;
   /** Number of workouts planned for today */
@@ -1053,54 +767,14 @@ export interface DailySummary {
 // ============================================
 
 /**
- * Whoop data for today's recovery response.
- */
-export interface TodaysRecoveryWhoop {
-  /** Today's Whoop sleep data, null if unavailable */
-  sleep: WhoopSleepData | null;
-  /** Today's Whoop recovery data, null if unavailable */
-  recovery: WhoopRecoveryData | null;
-}
-
-/**
- * Today's recovery data with current time in user's timezone.
- * Returned by get_todays_recovery tool.
- */
-export interface TodaysRecoveryResponse {
-  /** Current time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss±HH:mm) in the user's local timezone */
-  current_time: string;
-  /** Today's Whoop sleep and recovery data */
-  whoop: TodaysRecoveryWhoop;
-}
-
-/**
- * Whoop data for today's strain response.
- */
-export interface TodaysStrainWhoop {
-  /** Today's Whoop strain data, null if unavailable */
-  strain: StrainData | null;
-}
-
-/**
- * Today's strain data with current time in user's timezone.
- * Returned by get_todays_strain tool.
- */
-export interface TodaysStrainResponse {
-  /** Current time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss±HH:mm) in the user's local timezone */
-  current_time: string;
-  /** Today's Whoop strain data */
-  whoop: TodaysStrainWhoop;
-}
-
-/**
  * Today's completed workouts with current time in user's timezone.
  * Returned by get_todays_completed_workouts tool.
  */
 export interface TodaysCompletedWorkoutsResponse {
   /** Current time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss±HH:mm) in the user's local timezone */
   current_time: string;
-  /** Completed workouts from Intervals.icu with matched Whoop data */
-  workouts: WorkoutWithWhoop[];
+  /** Completed workouts from Intervals.icu */
+  workouts: NormalizedWorkout[];
 }
 
 /**

@@ -10,7 +10,6 @@ async function main() {
 
     console.log('Starting Domestique MCP Server...');
     console.log(`Intervals.icu: configured for athlete ${config.intervals.athleteId}`);
-    console.log(`Whoop: ${config.whoop ? 'configured' : 'not configured'}`);
     console.log(`TrainerRoad: ${config.trainerRoad ? 'configured' : 'not configured'}`);
 
     await startServer({ port: config.port });

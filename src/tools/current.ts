@@ -1,91 +1,26 @@
 import { IntervalsClient } from '../clients/intervals.js';
-import { WhoopClient } from '../clients/whoop.js';
 import { TrainerRoadClient } from '../clients/trainerroad.js';
-import { parseDateRangeInTimezone } from '../utils/date-parser.js';
 import { getTodayInTimezone } from '../utils/date-parser.js';
 import { getCurrentTimeInTimezone } from '../utils/date-formatting.js';
-import { DOMESTIQUE_TAG, enrichWorkoutsWithWhoop, fetchAndMergePlannedWorkouts } from '../utils/workout-utils.js';
+import { fetchAndMergePlannedWorkouts } from '../utils/workout-utils.js';
 import type {
-  StrainData,
   AthleteProfile,
   DailySummary,
   SportSettingsResponse,
-  TodaysRecoveryResponse,
-  TodaysStrainResponse,
   TodaysCompletedWorkoutsResponse,
   TodaysPlannedWorkoutsResponse,
   Race,
 } from '../types/index.js';
-import { filterWhoopDuplicateFields } from '../types/index.js';
-import type { GetStrainHistoryInput } from './types.js';
 
 export class CurrentTools {
   constructor(
     private intervals: IntervalsClient,
-    private whoop: WhoopClient | null,
     private trainerroad: TrainerRoadClient | null
   ) {}
 
   /**
-   * Get today's recovery data from Whoop with current date/time in user's timezone.
-   * Returns separate sleep and recovery objects under a whoop parent.
-   */
-  async getTodaysRecovery(): Promise<TodaysRecoveryResponse> {
-    // Use athlete's timezone to get current date/time
-    const timezone = await this.intervals.getAthleteTimezone();
-    const currentDateTime = getCurrentTimeInTimezone(timezone);
-
-    if (!this.whoop) {
-      return {
-        current_time: currentDateTime,
-        whoop: {
-          sleep: null,
-          recovery: null,
-        },
-      };
-    }
-
-    const { sleep, recovery } = await this.whoop.getTodayRecovery();
-    return {
-      current_time: currentDateTime,
-      whoop: {
-        sleep,
-        recovery,
-      },
-    };
-  }
-
-  /**
-   * Get today's strain data from Whoop with current date/time in user's timezone.
-   * Uses Whoop's physiological day model - returns the most recent scored cycle.
-   * Returns strain data under a whoop parent.
-   */
-  async getTodaysStrain(): Promise<TodaysStrainResponse> {
-    // Use athlete's timezone to get current date/time
-    const timezone = await this.intervals.getAthleteTimezone();
-    const currentDateTime = getCurrentTimeInTimezone(timezone);
-
-    if (!this.whoop) {
-      return {
-        current_time: currentDateTime,
-        whoop: {
-          strain: null,
-        },
-      };
-    }
-
-    const strain = await this.whoop.getTodayStrain();
-    return {
-      current_time: currentDateTime,
-      whoop: {
-        strain,
-      },
-    };
-  }
-
-  /**
-   * Get today's completed workouts from Intervals.icu with matched Whoop data
-   * and current date/time in user's timezone
+   * Get today's completed workouts from Intervals.icu
+   * with current date/time in user's timezone
    */
   async getTodaysCompletedWorkouts(): Promise<TodaysCompletedWorkoutsResponse> {
     // Use athlete's timezone to determine "today" and get current date/time
@@ -96,28 +31,10 @@ export class CurrentTools {
     // Fetch Intervals.icu activities
     const workouts = await this.intervals.getActivities(today, today);
 
-    // Enrich with matched Whoop data
-    const enrichedWorkouts = await enrichWorkoutsWithWhoop(workouts, this.whoop, today, today);
-
     return {
       current_time: currentDateTime,
-      workouts: enrichedWorkouts,
+      workouts,
     };
-  }
-
-  /**
-   * Get strain history from Whoop for a date range
-   */
-  async getStrainHistory(params: GetStrainHistoryInput): Promise<StrainData[]> {
-    if (!this.whoop) {
-      return [];
-    }
-
-    // Use athlete's timezone for date parsing
-    const timezone = await this.intervals.getAthleteTimezone();
-    const { startDate, endDate } = parseDateRangeInTimezone(params.oldest, params.newest, timezone);
-
-    return await this.whoop.getStrainData(startDate, endDate);
   }
 
   /**
@@ -163,12 +80,9 @@ export class CurrentTools {
   }
 
   /**
-   * Get a complete summary of today's data including recovery, strain, and workouts.
-   * This is the single tool for all "today's" data - recovery, sleep, strain,
+   * Get a complete summary of today's data including fitness metrics and workouts.
+   * This is the single tool for all "today's" data: fitness metrics,
    * completed workouts, and planned workouts.
-   *
-   * Note: Whoop insight fields (recovery_level, strain_level, sleep_performance_level, etc.)
-   * are included directly in the recovery and strain objects.
    */
   async getTodaysSummary(): Promise<DailySummary> {
     // Use athlete's timezone to determine "today"
@@ -176,19 +90,7 @@ export class CurrentTools {
     const today = getTodayInTimezone(timezone);
 
     // Fetch all data in parallel for efficiency
-    const [recoveryResponse, strainResponse, bodyMeasurements, fitness, wellness, completedWorkoutsResponse, plannedWorkoutsResponse, todaysRace] = await Promise.all([
-      this.getTodaysRecovery().catch((e) => {
-        console.error('Error fetching recovery for daily summary:', e);
-        return { current_time: getCurrentTimeInTimezone(timezone), whoop: { sleep: null, recovery: null } };
-      }),
-      this.getTodaysStrain().catch((e) => {
-        console.error('Error fetching strain for daily summary:', e);
-        return { current_time: getCurrentTimeInTimezone(timezone), whoop: { strain: null } };
-      }),
-      this.whoop?.getBodyMeasurements().catch((e) => {
-        console.error('Error fetching body measurements for daily summary:', e);
-        return null;
-      }) ?? Promise.resolve(null),
+    const [fitness, wellness, completedWorkoutsResponse, plannedWorkoutsResponse, todaysRace] = await Promise.all([
       this.intervals.getTodayFitness().catch((e) => {
         console.error('Error fetching fitness for daily summary:', e);
         return null;
@@ -217,9 +119,6 @@ export class CurrentTools {
         : Promise.resolve(null as Race | null),
     ]);
 
-    // Extract data from response objects
-    const { sleep, recovery } = recoveryResponse.whoop;
-    const { strain } = strainResponse.whoop;
     const completedWorkouts = completedWorkoutsResponse.workouts;
     const plannedWorkouts = plannedWorkoutsResponse.workouts;
 
@@ -236,22 +135,10 @@ export class CurrentTools {
     // Get current datetime in user's timezone for context
     const currentDateTime = getCurrentTimeInTimezone(timezone);
 
-    // Filter out Whoop-duplicate fields from wellness when Whoop is connected
-    // Whoop provides more detailed sleep/HRV metrics
-    const filteredWellness = this.whoop
-      ? filterWhoopDuplicateFields(wellness)
-      : wellness;
-
     return {
       current_time: currentDateTime,
-      whoop: {
-        body_measurements: bodyMeasurements,
-        strain,
-        sleep,
-        recovery,
-      },
       fitness,
-      wellness: filteredWellness,
+      wellness,
       planned_workouts: plannedWorkouts,
       completed_workouts: completedWorkouts,
       scheduled_race: todaysRace,

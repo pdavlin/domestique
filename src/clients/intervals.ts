@@ -34,7 +34,7 @@ import type {
   ActivityType,
   ActivityIntervalInput,
 } from '../types/index.js';
-import { normalizeActivityType } from '../utils/activity-matcher.js';
+import { normalizeActivityType } from '../utils/workout-utils.js';
 import {
   formatDuration,
   formatDistance,

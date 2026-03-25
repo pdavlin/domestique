@@ -1,11 +1,10 @@
 # Domestique
 
-A TypeScript MCP (Model Context Protocol) server that integrates with [Intervals.icu](https://intervals.icu), [Whoop](https://www.whoop.com), and [TrainerRoad](https://www.trainerroad.com) to provide unified access to fitness data across all activities and sports.
+A TypeScript MCP (Model Context Protocol) server that integrates with [Intervals.icu](https://intervals.icu) and [TrainerRoad](https://www.trainerroad.com) to provide unified access to fitness data across all activities and sports.
 
 ## Features
 
-- Query completed workouts from Intervals.icu with matched Whoop strain data
-- Access sleep and recovery metrics (HRV, sleep, recovery score) from Whoop
+- Query completed workouts from Intervals.icu
 - View planned workouts from TrainerRoad and Intervals.icu
 - Sync TrainerRoad running workouts to Intervals.icu as structured workouts for Zwift/Garmin
 - Analyze fitness trends (CTL/ATL/TSB)
@@ -17,16 +16,14 @@ A TypeScript MCP (Model Context Protocol) server that integrates with [Intervals
 ## Available Tools
 
 ### Today's Data
-- `get_todays_summary` - Complete snapshot of today including recovery, sleep, HRV, strain, fitness metrics (CTL/ATL/TSB), wellness, completed workouts (with matched Whoop data), planned workouts (from TrainerRoad and Intervals.icu), and today's race, if any.
+- `get_todays_summary` - Complete snapshot of today including fitness metrics (CTL/ATL/TSB), wellness, completed workouts, planned workouts (from TrainerRoad and Intervals.icu), and today's race, if any.
 
 ### Profile & Settings
 - `get_athlete_profile` - Athlete's profile including unit preferences (metric/imperial), age, and location
 - `get_sports_settings` - Sport-specific settings (FTP, zones, thresholds) for cycling, running, or swimming
 
 ### Historical/Trends
-- `get_strain_history` - Whoop strain scores and activities for a date range
-- `get_workout_history` - Historical workouts with matched Whoop strain data
-- `get_recovery_trends` - HRV, sleep, and recovery patterns over time
+- `get_workout_history` - Historical workouts for a date range
 - `get_wellness_trends` - Wellness data trends (weight) over a date range
 - `get_activity_totals` - Aggregated activity totals over a date range, including duration, distance, training load, and zone distributions by sport
 
@@ -63,7 +60,6 @@ A TypeScript MCP (Model Context Protocol) server that integrates with [Intervals
 
 - Node.js 20+
 - Intervals.icu account with API key
-- Whoop account with OAuth credentials
 - TrainerRoad account with calendar feed URL
 
 ### Environment Variables
@@ -85,46 +81,8 @@ For Intervals.icu integration:
 - `INTERVALS_API_KEY` - Your Intervals.icu API key
 - `INTERVALS_ATHLETE_ID` - Your Intervals.icu athlete ID
 
-For Whoop integration:
-- `WHOOP_CLIENT_ID`
-- `WHOOP_CLIENT_SECRET`
-- `REDIS_URL` - Required for token storage (e.g., `redis://localhost:6379`)
-- `WHOOP_REDIRECT_URI` - Optional. Auto-detected based on environment:
-  - On Fly.io: `https://{FLY_APP_NAME}.fly.dev/callback`
-  - Otherwise: `http://localhost:3000/callback`
-
 For TrainerRoad integration:
 - `TRAINERROAD_CALENDAR_URL` - Private iCal feed URL
-
-### Whoop OAuth Setup
-
-Whoop uses OAuth 2.0, which requires a one-time authorization flow to obtain refresh tokens. The refresh tokens are single-use, so each time the server refreshes the access token, it receives a new refresh token that gets stored in Redis.
-
-**First-time setup:**
-
-1. Create a Whoop developer app at https://developer.whoop.com to get your `WHOOP_CLIENT_ID` and `WHOOP_CLIENT_SECRET`
-
-2. Make sure Redis is running and `REDIS_URL` is set in your `.env`
-
-3. Start the Docker environment:
-   ```bash
-   docker compose up -d
-   ```
-
-4. Run the OAuth setup script:
-   ```bash
-   docker compose exec domestique npm run whoop:auth
-   ```
-
-5. The script will display an authorization URL. Open it in your browser and log in to Whoop
-
-6. After authorizing, you'll be redirected to a callback page that displays your authorization code
-
-7. Copy the authorization code and paste it into the script
-
-8. The script exchanges the code for tokens and stores them in Redis. You're done!
-
-The server will automatically refresh tokens as needed and store new refresh tokens in Redis.
 
 ## Common Commands
 
@@ -156,7 +114,6 @@ docker compose exec domestique <command>
 
 # Examples:
 docker compose exec domestique npm run typecheck
-docker compose exec domestique npm run whoop:auth
 ```
 
 ### Testing with MCP Inspector
@@ -244,26 +201,7 @@ curl -L https://fly.io/install.sh | sh
 fly auth login
 ```
 
-### 2. Deploy Redis
-
-Redis is required for Whoop token storage. Deploy it first:
-
-```bash
-cd fly-redis
-
-# Create the Redis app (first time only)
-fly apps create domestique-redis
-
-# Create a volume for persistence
-fly volumes create redis_data --region iad --size 1
-
-# Deploy Redis
-fly deploy
-
-cd ..
-```
-
-### 3. Deploy Domestique
+### 2. Deploy Domestique
 
 ```bash
 # Create the app (first time only)
@@ -273,9 +211,6 @@ fly apps create domestique
 fly secrets set MCP_AUTH_TOKEN=your-secret-token
 fly secrets set INTERVALS_API_KEY=your-api-key
 fly secrets set INTERVALS_ATHLETE_ID=your-athlete-id
-fly secrets set WHOOP_CLIENT_ID=your-client-id
-fly secrets set WHOOP_CLIENT_SECRET=your-client-secret
-fly secrets set REDIS_URL=redis://domestique-redis.internal:6379
 
 # Deploy
 fly deploy
@@ -283,18 +218,6 @@ fly deploy
 # View logs
 fly logs
 ```
-
-### 4. Set Up Whoop Tokens (if using Whoop)
-
-After deploying, run the OAuth setup to get initial Whoop tokens:
-
-```bash
-fly ssh console -C "npm run whoop:auth"
-```
-
-The redirect URI is automatically set to `https://{your-app}.fly.dev/callback` when running on Fly.io. Make sure this URL is registered in your Whoop developer app settings.
-
-Follow the prompts to authorize with Whoop and store the tokens in Redis.
 
 ## Connecting to Claude
 
@@ -311,10 +234,8 @@ https://{FLY_APP_NAME}.fly.dev/mcp?token=YOUR_SECRET_TOKEN
 Once connected, you can ask Claude:
 
 - "How did my workout go today?"
-- "What's my recovery like this morning?"
 - "Show me my fitness trends for the last month"
 - "What workouts do I have planned this week?"
-- "How has my HRV trended compared to my training load?"
 - "What workout do I have scheduled for next Wednesday?"
 - "Show me my workouts from last Friday"
 - "How many workouts did I complete in the last 2 weeks?"

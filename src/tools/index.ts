@@ -2,7 +2,6 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { IntervalsClient } from '../clients/intervals.js';
-import { WhoopClient } from '../clients/whoop.js';
 import { TrainerRoadClient } from '../clients/trainerroad.js';
 import { CurrentTools } from './current.js';
 
@@ -151,12 +150,6 @@ function withToolResponse<TArgs, TResult>(
 
 export interface ToolsConfig {
   intervals: { apiKey: string; athleteId: string };
-  whoop?: {
-    accessToken: string;
-    refreshToken: string;
-    clientId: string;
-    clientSecret: string;
-  } | null;
   trainerroad?: { calendarUrl: string } | null;
 }
 
@@ -169,22 +162,12 @@ export class ToolRegistry {
   constructor(config: ToolsConfig) {
     const intervalsClient = new IntervalsClient(config.intervals);
     this.intervalsClient = intervalsClient;
-    const whoopClient = config.whoop ? new WhoopClient(config.whoop) : null;
     const trainerroadClient = config.trainerroad
       ? new TrainerRoadClient(config.trainerroad)
       : null;
 
-    // Connect Whoop client to Intervals.icu timezone for proper date filtering
-    if (whoopClient) {
-      whoopClient.setTimezoneGetter(() => intervalsClient.getAthleteTimezone());
-    }
-
-    this.currentTools = new CurrentTools(
-      intervalsClient,
-      whoopClient,
-      trainerroadClient
-    );
-    this.historicalTools = new HistoricalTools(intervalsClient, whoopClient);
+    this.currentTools = new CurrentTools(intervalsClient, trainerroadClient);
+    this.historicalTools = new HistoricalTools(intervalsClient);
     this.planningTools = new PlanningTools(intervalsClient, trainerroadClient);
   }
 
@@ -208,25 +191,22 @@ export class ToolRegistry {
         description: `Fetches a complete snapshot of the user's current status today in a single call. This is the tool to call to get all of "today's" data.
 
 **Includes:**
-- Whoop recovery, sleep performance, and strain (including HRV, sleep stages, and strain score)
 - Fitness metrics: CTL (fitness), ATL (fatigue), TSB (form), plus today's training load
 - Wellness metrics, such as vitals and subjective status
-- All workouts and fitness activities completed so far today (with matched Whoop strain data)
+- All workouts and fitness activities completed so far today
 - All workouts and fitness activities scheduled for today (from both TrainerRoad and Intervals.icu)
 - Today's scheduled race, if any
 
 <use-cases>
-- Getting today's recovery and readiness data (recovery score, HRV, sleep quality/duration)
-- Checking today's accumulated strain and stress
 - Reviewing completed workouts and their metrics
 - Viewing planned/scheduled workouts for today
-- Assessing readiness for training by combining recovery, fitness, and planned workouts
+- Assessing readiness for training by combining fitness metrics and planned workouts
 - Understanding the balance between completed and planned training load
 - Providing a complete daily status report in a single call
 </use-cases>
 
 <instructions>
-- **ALWAYS** use this tool when you need any "today's" data: recovery, sleep, strain, completed workouts, or planned workouts.
+- **ALWAYS** use this tool when you need any "today's" data: completed workouts, planned workouts, or fitness metrics.
 - Metrics and activities (completed and scheduled) can change over the course of the day; agents are encouraged to call this tool as the day progresses to get up-to-the-minute data rather than rely on the results of a previous call.
 </instructions>
 
@@ -241,7 +221,7 @@ export class ToolRegistry {
         'get_todays_summary',
         async () => this.currentTools.getTodaysSummary(),
         {
-          fieldDescriptions: combineFieldDescriptions('daily_summary', 'sleep', 'recovery', 'body_measurements', 'whoop', 'workout', 'planned', 'fitness', 'wellness'),
+          fieldDescriptions: combineFieldDescriptions('daily_summary', 'workout', 'planned', 'fitness', 'wellness'),
           hints: [dailySummarySyncHint, ...dailySummaryHints],
         }
       )
@@ -310,39 +290,6 @@ export class ToolRegistry {
 
     // Historical/Trends Tools
     server.registerTool(
-      'get_strain_history',
-      {
-        title: 'Strain History',
-        description: `Fetches Whoop strain data for a date range, including activities logged by the user in the Whoop app.
-
-<use-cases>
-- Analyzing strain patterns over time to identify trends in training intensity.
-- Correlating strain with recovery trends to understand training-recovery balance.
-- Identifying periods of high or low strain to assess training consistency.
-- Comparing strain across different time periods to evaluate training progression.
-</use-cases>
-
-<notes>
-- Date parameters accept ISO format (YYYY-MM-DD) or natural language ("Yesterday", "7 days ago", "last week", "2 weeks ago", etc.)
-- If you only need today's strain data, use get_todays_summary instead.
-- Returns empty array if Whoop is not configured.
-</notes>`,
-        inputSchema: {
-          oldest: z.string().describe('Start date (e.g., "2024-01-01", "30 days ago")'),
-          newest: z.string().optional().describe('End date (defaults to today)'),
-        },
-        annotations: READ_ONLY,
-      },
-      withDatedToolResponse(
-        'get_strain_history',
-        async (args: { oldest: string; newest?: string }) => this.currentTools.getStrainHistory(args),
-        {
-          fieldDescriptions: getFieldDescriptions('whoop'),
-        }
-      )
-    );
-
-    server.registerTool(
       'get_workout_history',
       {
         title: 'Workout History',
@@ -373,7 +320,7 @@ export class ToolRegistry {
         'get_workout_history',
         async (args: { oldest: string; newest?: string; sport?: 'cycling' | 'running' | 'swimming' | 'skiing' | 'hiking' | 'rowing' | 'strength' }) => this.historicalTools.getWorkoutHistory(args),
         {
-          fieldDescriptions: combineFieldDescriptions('workout', 'whoop'),
+          fieldDescriptions: getFieldDescriptions('workout'),
           hints: workoutHistoryHints,
         }
       )
@@ -410,40 +357,6 @@ Get the activity_id from:
         async (args: { activity_id: string }) => this.historicalTools.getWorkoutDetails(args.activity_id),
         {
           fieldDescriptions: combineFieldDescriptions('workout', 'workout_details'),
-        }
-      )
-    );
-
-    server.registerTool(
-      'get_recovery_trends',
-      {
-        title: 'Recovery Trends',
-        description: `Fetches Whoop recovery and sleep data over a date range.
-
-<use-cases>
-- Analyzing recovery patterns over time to identify trends in sleep and HRV.
-- Correlating recovery with training load to understand training-recovery balance.
-- Identifying periods of poor recovery that may indicate overtraining or other issues.
-- Understanding average recovery metrics to establish baseline expectations.
-- Comparing recovery across different time periods to assess improvement or decline.
-</use-cases>
-
-<notes>
-- Date parameters accept ISO format (YYYY-MM-DD) or natural language ("Yesterday", "7 days ago", "last week", "2 weeks ago", etc.)
-- If you only need today's recovery and sleep data, use get_todays_summary instead.
-- Returns empty array if Whoop is not configured.
-</notes>`,
-        inputSchema: {
-          oldest: z.string().describe('Start date (e.g., "2024-01-01", "30 days ago")'),
-          newest: z.string().optional().describe('End date (defaults to today)'),
-        },
-        annotations: READ_ONLY,
-      },
-      withDatedToolResponse(
-        'get_recovery_trends',
-        async (args: { oldest: string; newest?: string }) => this.historicalTools.getRecoveryTrends(args),
-        {
-          fieldDescriptions: getFieldDescriptions('recovery'),
         }
       )
     );

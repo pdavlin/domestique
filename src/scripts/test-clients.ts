@@ -4,58 +4,8 @@
  * Run with: npm run test:clients
  */
 
-import { WhoopClient } from '../clients/whoop.js';
 import { IntervalsClient } from '../clients/intervals.js';
 import { TrainerRoadClient } from '../clients/trainerroad.js';
-
-async function testWhoop() {
-  console.log('\n🏋️  Testing Whoop API...\n');
-
-  const clientId = process.env.WHOOP_CLIENT_ID;
-  const clientSecret = process.env.WHOOP_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    console.log('   ⏭️  Skipped: WHOOP_CLIENT_ID or WHOOP_CLIENT_SECRET not set');
-    return;
-  }
-
-  try {
-    const client = new WhoopClient({
-      accessToken: '', // Will be loaded from Redis
-      refreshToken: '',
-      clientId,
-      clientSecret,
-    });
-
-    // Test today's recovery
-    console.log('   Fetching today\'s recovery...');
-    const { sleep, recovery } = await client.getTodayRecovery();
-    if (recovery && sleep) {
-      console.log(`   ✅ Recovery score: ${recovery.recovery_score}%`);
-      console.log(`      HRV: ${recovery.hrv_rmssd.toFixed(1)} ms`);
-      console.log(`      RHR: ${recovery.resting_heart_rate} bpm`);
-      console.log(`      Sleep: ${sleep.sleep_summary.total_in_bed_time}`);
-    } else {
-      console.log('   ⚠️  No recovery data for today');
-    }
-
-    // Test recent strain
-    const today = new Date().toISOString().split('T')[0];
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    console.log('\n   Fetching recent strain data...');
-    const strain = await client.getStrainData(weekAgo, today);
-    console.log(`   ✅ Found ${strain.length} days of strain data`);
-    if (strain.length > 0) {
-      const latest = strain[strain.length - 1];
-      console.log(`      Latest strain: ${latest.strain_score.toFixed(1)}`);
-      console.log(`      Activities: ${latest.activities.length}`);
-    }
-
-  } catch (error) {
-    console.error('   ❌ Whoop error:', error instanceof Error ? error.message : error);
-  }
-}
 
 async function testIntervals() {
   console.log('\n🚴 Testing Intervals.icu API...\n');
@@ -137,7 +87,6 @@ async function main() {
   console.log('║     Domestique Client Integration      ║');
   console.log('╚════════════════════════════════════════╝');
 
-  await testWhoop();
   await testIntervals();
   await testTrainerRoad();
 

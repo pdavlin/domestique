@@ -6,7 +6,6 @@ This document contains everything an AI agent needs to know to work on this repo
 
 Domestique is a TypeScript MCP (Model Context Protocol) server that integrates with fitness platforms:
 - **Intervals.icu** - Training data, workouts, fitness metrics (CTL/ATL/TSB)
-- **Whoop** - Recovery, HRV, sleep, strain data
 - **TrainerRoad** - Planned workouts via iCal feed
 
 ## Development Environment
@@ -39,7 +38,7 @@ If any commands need to be run directly on the host machine, run `nvm use` first
 ### Starting Development
 
 ```bash
-# Start all services (domestique + redis)
+# Start all services
 docker compose up
 
 # Or in background
@@ -54,7 +53,6 @@ The development server runs on `http://localhost:3000` with hot reload enabled.
 |---------|------|-------------|
 | `domestique` | 3000 | Main MCP server (dev mode with hot reload) |
 | `domestique-prod` | 3001 | Production-like build (use `--profile prod`) |
-| `redis` | 6379 | Token storage for Whoop OAuth |
 
 ### Claude Code on the Web
 
@@ -94,12 +92,6 @@ INTERVALS_ATHLETE_ID=    # Intervals.icu athlete ID
 
 Optional:
 ```bash
-# Whoop (requires all three + Redis)
-WHOOP_CLIENT_ID=
-WHOOP_CLIENT_SECRET=
-WHOOP_REDIRECT_URI=        # OAuth redirect URI (defaults to http://localhost:3000/callback)
-REDIS_URL=redis://redis:6379
-
 # TrainerRoad
 TRAINERROAD_CALENDAR_URL=  # Private iCal feed URL
 ```
@@ -166,13 +158,12 @@ curl -X POST http://localhost:3000/mcp \
 
 ## Important Notes
 
-1. **Whoop uses OAuth** - Tokens stored in Redis, refreshed automatically. Initial setup requires running `npm run whoop:auth` interactively.
-2. **Hot reload** - The dev container uses `tsx watch` for hot reload of `src/` files.
-3. **express.json() middleware** - Used for Streamable HTTP transport to parse JSON request bodies.
-4. **Tool registry is shared** - Created once at server start, but each MCP session gets its own `McpServer` instance.
-5. When making changes, ensure that @README.md is up to date.
-6. When adding new tools or modifying existing ones, ensure that the tool descriptions and the field descriptions are up to date.
-7. Always ensure tests pass with `nvm use && npm test` and always add tests for new functionality.
+1. **Hot reload** - The dev container uses `tsx watch` for hot reload of `src/` files.
+2. **express.json() middleware** - Used for Streamable HTTP transport to parse JSON request bodies.
+3. **Tool registry is shared** - Created once at server start, but each MCP session gets its own `McpServer` instance.
+4. When making changes, ensure that @README.md is up to date.
+5. When adding new tools or modifying existing ones, ensure that the tool descriptions and the field descriptions are up to date.
+6. Always ensure tests pass with `nvm use && npm test` and always add tests for new functionality.
 
 ## MCP Client Compatibility Notes
 

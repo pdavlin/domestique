@@ -21,21 +21,6 @@ vi.mock('../../src/clients/intervals.js', () => ({
   }),
 }));
 
-vi.mock('../../src/clients/whoop.js', () => ({
-  WhoopClient: vi.fn().mockImplementation(function () {
-    return {
-      getTodayRecovery: vi.fn().mockResolvedValue({ sleep: null, recovery: null }),
-      getTodayStrain: vi.fn().mockResolvedValue(null),
-      getStrainData: vi.fn().mockResolvedValue([]),
-      getRecoveries: vi.fn().mockResolvedValue([]),
-      getWorkouts: vi.fn().mockResolvedValue([]),
-      getBodyMeasurements: vi.fn().mockResolvedValue(null),
-      setTimezoneGetter: vi.fn(),
-    };
-  }),
-  // Note: We don't mock WhoopApiError here because the tests use the real error classes
-}));
-
 vi.mock('../../src/clients/trainerroad.js', () => ({
   TrainerRoadClient: vi.fn().mockImplementation(function () {
     return {
@@ -64,12 +49,6 @@ describe('Tool Response Wrapper', () => {
 
     registry = new ToolRegistry({
       intervals: { apiKey: 'test', athleteId: 'test' },
-      whoop: {
-        accessToken: 'test',
-        refreshToken: 'test',
-        clientId: 'test',
-        clientSecret: 'test',
-      },
       trainerroad: { calendarUrl: 'https://test.com' },
     });
 
@@ -113,8 +92,8 @@ describe('Tool Response Wrapper', () => {
         'Rate limited',
         'rate_limit',
         true,
-        { operation: 'fetch recovery' },
-        'whoop',
+        { operation: 'fetch activities' },
+        'intervals',
         429
       );
 
@@ -129,7 +108,7 @@ describe('Tool Response Wrapper', () => {
         'authentication',
         false,
         { operation: 'authenticate' },
-        'whoop',
+        'intervals',
         401
       );
 
@@ -196,15 +175,13 @@ describe('Tool Response Wrapper', () => {
 
   describe('tool registration', () => {
     it('should register all expected tools', () => {
-      expect(registeredHandlers.size).toBe(27);
+      expect(registeredHandlers.size).toBe(25);
 
       // Verify key tools are registered
       expect(registeredHandlers.has('get_todays_summary')).toBe(true);
       expect(registeredHandlers.has('get_athlete_profile')).toBe(true);
       expect(registeredHandlers.has('get_sports_settings')).toBe(true);
-      expect(registeredHandlers.has('get_strain_history')).toBe(true);
       expect(registeredHandlers.has('get_workout_history')).toBe(true);
-      expect(registeredHandlers.has('get_recovery_trends')).toBe(true);
       expect(registeredHandlers.has('get_wellness_trends')).toBe(true);
       expect(registeredHandlers.has('get_activity_totals')).toBe(true);
       expect(registeredHandlers.has('get_upcoming_workouts')).toBe(true);
@@ -227,15 +204,6 @@ describe('Tool Response Wrapper', () => {
       expect(registeredHandlers.has('create_cycling_workout')).toBe(true);
     });
 
-    it('should set up timezone getter when Whoop client is configured', async () => {
-      const { WhoopClient } = await import('../../src/clients/whoop.js');
-      expect(WhoopClient).toHaveBeenCalled();
-      // The setTimezoneGetter should be called during construction
-      const mockInstance = vi.mocked(WhoopClient).mock.results[0]?.value;
-      if (mockInstance) {
-        expect(mockInstance.setTimezoneGetter).toHaveBeenCalled();
-      }
-    });
   });
 });
 

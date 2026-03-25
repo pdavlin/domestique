@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { PlannedWorkout, TrainerRoadConfig, ActivityType, Race } from '../types/index.js';
 import { formatDuration } from '../utils/format-units.js';
-import { normalizeActivityType } from '../utils/activity-matcher.js';
+import { normalizeActivityType } from '../utils/workout-utils.js';
 import { TrainerRoadApiError } from '../errors/index.js';
 
 interface CalendarEvent {

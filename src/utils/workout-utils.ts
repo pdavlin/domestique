@@ -1,15 +1,47 @@
-import { findMatchingWhoopActivity } from './activity-matcher.js';
 import type { IntervalsClient } from '../clients/intervals.js';
-import type { WhoopClient } from '../clients/whoop.js';
 import type { TrainerRoadClient } from '../clients/trainerroad.js';
 import type {
   PlannedWorkout,
-  NormalizedWorkout,
-  StrainActivity,
-  WhoopMatchedData,
-  WorkoutWithWhoop,
   ActivityType,
 } from '../types/index.js';
+
+// Activity type mappings for normalization across platforms
+const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
+  'ride': 'Cycling',
+  'cycling': 'Cycling',
+  'virtualride': 'Cycling',
+  'run': 'Running',
+  'running': 'Running',
+  'virtualrun': 'Running',
+  'swim': 'Swimming',
+  'swimming': 'Swimming',
+  'openwaterswim': 'Swimming',
+  'alpineski': 'Skiing',
+  'alpine skiing': 'Skiing',
+  'backcountryski': 'Skiing',
+  'nordicski': 'Skiing',
+  'skiing': 'Skiing',
+  'hike': 'Hiking',
+  'hiking': 'Hiking',
+  'rowing': 'Rowing',
+  'row': 'Rowing',
+  'weighttraining': 'Strength',
+  'strength': 'Strength',
+  'workout': 'Strength',
+  'spin': 'Cycling',
+  'functional fitness': 'Strength',
+  'hiit': 'Strength',
+  'cross country skiing': 'Skiing',
+  'downhill skiing': 'Skiing',
+};
+
+/**
+ * Normalize activity type string to standard ActivityType
+ */
+export function normalizeActivityType(type: string): ActivityType {
+  const normalized = type.toLowerCase().replace(/[_-]/g, ' ').trim();
+  return ACTIVITY_TYPE_MAP[normalized] ?? 'Other';
+}
 
 /** Tag used to identify Domestique-created workouts */
 export const DOMESTIQUE_TAG = 'domestique';
@@ -63,51 +95,6 @@ export function mergeWorkouts(
   }
 
   return merged;
-}
-
-/**
- * Find and match a Whoop activity to an Intervals.icu workout.
- * Returns the matched Whoop data or null if no match found.
- */
-export function matchWhoopActivity(
-  workout: NormalizedWorkout,
-  whoopActivities: StrainActivity[]
-): WhoopMatchedData | null {
-  const match = findMatchingWhoopActivity(workout, whoopActivities);
-  if (!match) return null;
-
-  return {
-    strain_score: match.strain_score,
-    average_heart_rate: match.average_heart_rate,
-    max_heart_rate: match.max_heart_rate,
-    calories: match.calories,
-    distance: match.distance,
-    elevation_gain: match.elevation_gain,
-    zone_durations: match.zone_durations,
-  };
-}
-
-/**
- * Enrich workouts with matched Whoop activity data.
- * Fetches Whoop activities for the date range and matches them to workouts.
- * Gracefully handles Whoop fetch failures by continuing without Whoop data.
- */
-export async function enrichWorkoutsWithWhoop(
-  workouts: NormalizedWorkout[],
-  whoop: WhoopClient | null,
-  startDate: string,
-  endDate: string
-): Promise<WorkoutWithWhoop[]> {
-  if (!whoop) {
-    return workouts.map((w) => ({ ...w, whoop: null }));
-  }
-  let whoopActivities: StrainActivity[] = [];
-  try {
-    whoopActivities = await whoop.getWorkouts(startDate, endDate);
-  } catch (error) {
-    console.error('Error fetching Whoop activities for matching:', error);
-  }
-  return workouts.map((w) => ({ ...w, whoop: matchWhoopActivity(w, whoopActivities) }));
 }
 
 // ============================================

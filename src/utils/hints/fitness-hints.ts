@@ -22,17 +22,6 @@ export const dailySummaryFitnessHint: HintGenerator<DailySummary> = (data) => {
 };
 
 /**
- * Hint for drilling into daily summary recovery data.
- * Guides LLM on which tools can provide historical recovery context.
- */
-export const dailySummaryRecoveryHint: HintGenerator<DailySummary> = (data) => {
-  if (data.whoop.recovery) {
-    return `For historical context, use get_recovery_trends to see how today's recovery compares to recent patterns.`;
-  }
-  return undefined;
-};
-
-/**
  * Hint for power curve analysis.
  * Guides LLM to check settings if there are improvements.
  */
@@ -83,5 +72,4 @@ export const paceCurveProgressHint: HintGenerator<PaceCurvesResponse> = (data) =
  */
 export const dailySummaryHints: HintGenerator<DailySummary>[] = [
   dailySummaryFitnessHint,
-  dailySummaryRecoveryHint,
 ];

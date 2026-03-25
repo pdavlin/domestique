@@ -26,7 +26,7 @@ export const WORKOUT_FIELD_DESCRIPTIONS = {
   intensity_factor: 'Intensity Factor (IF), a measure of how hard it was compared to your FTP',
   trimp: 'Training Impulse, a measure of training load derived from the average HR for the activity relative to resting HR and max HR and the moving time',
   session_rpe: 'Session RPE = RPE × duration in minutes, a method of quantifying training load by considering the intensity (RPE) and duration of the training session (or competition)',
-  icu_strain_score: 'Intervals.icu strain score, similar to XSS in Xert, a power based training load metric that considers time spent above the maximal metabolic steady state to estimate the level of strain for the activity. Unrelated to Whoop\'s strain score.',
+  icu_strain_score: 'Intervals.icu strain score, similar to XSS in Xert, a power based training load metric that considers time spent above the maximal metabolic steady state to estimate the level of strain for the activity.',
 
   // Power metrics
   normalized_power: 'Normalized Power (NP) in watts',
@@ -150,75 +150,6 @@ export const WORKOUT_DETAILS_FIELD_DESCRIPTIONS = {
   compliance: 'Workout compliance percentage (0-100). Measures how closely the athlete followed a planned workout. 0 means no planned workout was matched.',
 };
 
-export const WHOOP_FIELD_DESCRIPTIONS = {
-  // Strain activity
-  strain_score: 'Whoop metric of the cardiovascular load, the level of strain the workout had on the user\'s cardiovascular system based on the user\'s heart rate. Strain is scored on a logarithmic scale from 0 to 21. Light: 0-9, Moderate: 10-13, High: 14-17, All out: 18-21',
-  average_heart_rate: 'The user\'s average heart rate (beats per minute) during the workout.',
-  max_heart_rate: 'The user\'s max heart rate (beats per minute) during the workout.',
-  calories: 'Estimated calories burned by the user',
-  duration: 'Duration of the activity',
-  distance: 'The distance the user traveled during the workout; only present if distance data sent to Whoop',
-  elevation_gain: 'The altitude gained during the workout; this measurement does not account for downward travel - it is strictly a measure of altitude climbed',
-  zone_durations: 'Time spent in each Whoop HR zone. Note: Whoop uses the Heart Rate Reserve (HRR) method to calculate these zones; they may not match Intervals.icu HR zones.',
-  strain_level: 'Whoop\'s label for the Strain score: Light, Moderate, High, All out',
-  strain_level_description: 'Whoop\'s official description for the strain level',
-};
-
-export const BODY_MEASUREMENTS_FIELD_DESCRIPTIONS = {
-  height_meter: 'The user\'s height in meters',
-  weight_kilogram: 'The user\'s weight in kilograms',
-  max_heart_rate: 'The user\'s maximum heart rate in BPM calculated by Whoop',
-};
-
-export const SLEEP_FIELD_DESCRIPTIONS = {
-  // Sleep summary (nested object)
-  sleep_summary: 'Summary of the user\'s sleep stages',
-  total_in_bed_time: 'Total time the user spent in bed',
-  total_awake_time: 'Total time the user spent awake during the sleep period',
-  total_no_data_time: 'Total time Whoop didn\'t receive data from the user',
-  total_light_sleep_time: 'Total time the user spent in light sleep',
-  total_slow_wave_sleep_time: 'Total time the user spent in deep/slow wave sleep',
-  total_rem_sleep_time: 'Total time the user spent in REM sleep',
-  total_restorative_sleep: 'Total time the user spent in restorative sleep (slow wave + REM)',
-  sleep_cycle_count: 'Number of sleep cycles during the user\'s sleep',
-  disturbance_count: 'Number of the user was disturbed during sleep',
-
-  // Sleep needed (nested object)
-  sleep_needed: 'Breakdown of the amount of sleep a user needed before the sleep activity',
-  total_sleep_needed: 'Total sleep needed by the user prior to this sleep activity; it\'s the sum of all individual components',
-  baseline: 'The amount of sleep a user needed based on historical trends',
-  need_from_sleep_debt: 'The difference between the amount of sleep the user\'s body required and the amount the user actually got',
-  need_from_recent_strain: 'Additional sleep need accrued based on the user\'s strain',
-  need_from_recent_nap: 'Reduction in sleep need accrued based on the user\'s recent naps (negative value or zero)',
-
-  // Top-level sleep metrics
-  respiratory_rate: 'The user\'s respiratory rate during the sleep, in breaths per minute',
-  sleep_performance_percentage: 'A percentage of the time a user is asleep over the amount of sleep the user needed. Optimal: ≥85%, Sufficient: 70-85%, Poor: <70%',
-  sleep_consistency_percentage: 'Percentage of how similar this sleep and wake times compared to the previous day',
-  sleep_efficiency_percentage: 'A percentage of the time the user spends in bed that they are actually asleep.',
-  sleep_performance_level: 'Whoop\'s label for the sleep performance percentage: OPTIMAL, SUFFICIENT, or POOR',
-  sleep_performance_level_description: 'Whoop\'s official description for this sleep performance level',
-  sleep_start: 'The approximate time the user fell asleep, in the user\'s local timezone',
-  sleep_end: 'The approximate time the user woke up, in the user\'s local timezone',
-
-  // Naps (nested array)
-  naps: 'Array of naps taken during this cycle',
-  nap_summary: 'Summary of the nap\'s sleep stages (same structure as sleep_summary)',
-  nap_start: 'The approximate time the nap started, in the user\'s local timezone',
-  nap_end: 'The approximate time the nap ended, in the user\'s local timezone',
-};
-
-export const RECOVERY_FIELD_DESCRIPTIONS = {
-  date: 'Date of recovery data (ISO 8601)',
-  recovery_score: 'Percentage (0-100%) that reflects how well prepared the user\'s body is to take on Strain; it\s is a measure of the user body\'s "return to baseline" after a stressor. Sufficient: ≥67%, Adequate: 34-66%, Low: <34%',
-  recovery_level: 'Whoop\'s label for the user\'s recovery level: SUFFICIENT, ADEQUATE, or LOW',
-  recovery_level_description: 'Whoop\'s official description for this recovery level',
-  hrv_rmssd: 'The user\'s Heart Rate Variability measured using Root Mean Square of Successive Differences (RMSSD), in milliseconds',
-  resting_heart_rate: 'The user\'s resting heart rate in BPM, measured towards the end of their sleep cycle when their body is in Slow Wave Sleep',
-  spo2_percentage: 'The percentage of oxygen in the user\'s blood',
-  skin_temp_celsius: 'The user\'s skin temperature, in Celsius. ',
-};
-
 export const FITNESS_FIELD_DESCRIPTIONS = {
   // Data array (sorted oldest to newest)
   data: 'Array of daily training load metrics, sorted oldest to newest (first item = oldest day)',
@@ -295,7 +226,7 @@ export const SPORT_SETTINGS_FIELD_DESCRIPTIONS = {
   max_hr: 'Maximum heart rate in BPM',
 
   // HR zones
-  hr_zones: 'Array of current heart rate zone objects for the athlete. Each object contains: name (e.g., "Z1", "Z2"), low_bpm, and high_bpm (null for highest zone). Note that these may be different than the Whoop HR zones, which use the Heart Rate Reserve (HRR) method.',
+  hr_zones: 'Array of current heart rate zone objects for the athlete. Each object contains: name (e.g., "Z1", "Z2"), low_bpm, and high_bpm (null for highest zone).',
 
   // Pace thresholds
   threshold_pace: 'Threshold pace in human-readable format (e.g., "4:10/km" or "2:00/100m")',
@@ -594,20 +525,9 @@ export const DAILY_SUMMARY_FIELD_DESCRIPTIONS = {
   tss_planned: 'Total expected Training Stress Score from planned workouts',
 };
 
-export const TODAYS_RECOVERY_FIELD_DESCRIPTIONS = {
-  current_time: 'Current date and time for the user, in their local timezone.',
-  sleep: 'Today\'s Whoop sleep data. Null if Whoop is not configured or data is unavailable.',
-  recovery: 'Today\'s Whoop recovery data. Null if Whoop is not configured or data is unavailable.',
-};
-
-export const TODAYS_STRAIN_FIELD_DESCRIPTIONS = {
-  current_time: 'Current date and time for the user, in their local timezone. Use this to understand the time of day; this context shows how much strain has been accumulated so far today.',
-  strain: 'Today\'s Whoop strain data. Null if Whoop is not configured or data is unavailable.',
-};
-
 export const TODAYS_COMPLETED_WORKOUTS_FIELD_DESCRIPTIONS = {
   current_time: 'Current date and time for the user, in their local timezone.',
-  workouts: 'Array of completed workouts from Intervals.icu with matched Whoop data. Empty array if no workouts completed today.',
+  workouts: 'Array of completed workouts from Intervals.icu. Empty array if no workouts completed today.',
 };
 
 export const TODAYS_PLANNED_WORKOUTS_FIELD_DESCRIPTIONS = {
@@ -669,10 +589,6 @@ const SET_WORKOUT_INTERVALS_FIELD_DESCRIPTIONS: Record<string, string> = {
 type FieldCategory =
   | 'workout'
   | 'workout_details'
-  | 'whoop'
-  | 'body_measurements'
-  | 'sleep'
-  | 'recovery'
   | 'fitness'
   | 'planned'
   | 'race'
@@ -687,8 +603,6 @@ type FieldCategory =
   | 'hr_curve'
   | 'wellness'
   | 'daily_summary'
-  | 'todays_recovery'
-  | 'todays_strain'
   | 'todays_completed_workouts'
   | 'todays_planned_workouts'
   | 'activity_totals'
@@ -703,14 +617,6 @@ export function getFieldDescriptions(category: FieldCategory): Record<string, st
       return WORKOUT_FIELD_DESCRIPTIONS;
     case 'workout_details':
       return WORKOUT_DETAILS_FIELD_DESCRIPTIONS;
-    case 'whoop':
-      return WHOOP_FIELD_DESCRIPTIONS;
-    case 'body_measurements':
-      return BODY_MEASUREMENTS_FIELD_DESCRIPTIONS;
-    case 'sleep':
-      return SLEEP_FIELD_DESCRIPTIONS;
-    case 'recovery':
-      return RECOVERY_FIELD_DESCRIPTIONS;
     case 'fitness':
       return FITNESS_FIELD_DESCRIPTIONS;
     case 'planned':
@@ -739,10 +645,6 @@ export function getFieldDescriptions(category: FieldCategory): Record<string, st
       return WELLNESS_FIELD_DESCRIPTIONS;
     case 'daily_summary':
       return DAILY_SUMMARY_FIELD_DESCRIPTIONS;
-    case 'todays_recovery':
-      return TODAYS_RECOVERY_FIELD_DESCRIPTIONS;
-    case 'todays_strain':
-      return TODAYS_STRAIN_FIELD_DESCRIPTIONS;
     case 'todays_completed_workouts':
       return TODAYS_COMPLETED_WORKOUTS_FIELD_DESCRIPTIONS;
     case 'todays_planned_workouts':

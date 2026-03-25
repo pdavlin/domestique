@@ -145,27 +145,6 @@ describe('auth/middleware', () => {
       );
     });
 
-    it('should require Whoop refresh token when access token is set', () => {
-      process.env.MCP_AUTH_TOKEN = 'token';
-      process.env.INTERVALS_API_KEY = 'key';
-      process.env.INTERVALS_ATHLETE_ID = 'athlete';
-      process.env.WHOOP_CLIENT_ID = 'client-id';
-      delete process.env.WHOOP_CLIENT_SECRET;
-      delete process.env.REDIS_URL;
-
-      expect(() => validateEnvironment()).toThrow(
-        'Missing required environment variables: WHOOP_CLIENT_SECRET, REDIS_URL'
-      );
-    });
-
-    it('should not require Whoop vars when client ID is not set', () => {
-      process.env.MCP_AUTH_TOKEN = 'token';
-      process.env.INTERVALS_API_KEY = 'key';
-      process.env.INTERVALS_ATHLETE_ID = 'athlete';
-      delete process.env.WHOOP_CLIENT_ID;
-
-      expect(() => validateEnvironment()).not.toThrow();
-    });
   });
 
   describe('getConfig', () => {
@@ -190,29 +169,6 @@ describe('auth/middleware', () => {
       const config = getConfig();
 
       expect(config.port).toBe(8080);
-    });
-
-    it('should return Whoop config when client ID is set', () => {
-      process.env.WHOOP_CLIENT_ID = 'whoop-client';
-      process.env.WHOOP_CLIENT_SECRET = 'whoop-secret';
-
-      const config = getConfig();
-
-      // accessToken and refreshToken are empty - loaded from Redis at runtime
-      expect(config.whoop).toEqual({
-        accessToken: '',
-        refreshToken: '',
-        clientId: 'whoop-client',
-        clientSecret: 'whoop-secret',
-      });
-    });
-
-    it('should return null for Whoop when client ID is not set', () => {
-      delete process.env.WHOOP_CLIENT_ID;
-
-      const config = getConfig();
-
-      expect(config.whoop).toBeNull();
     });
 
     it('should return TrainerRoad config when set', () => {

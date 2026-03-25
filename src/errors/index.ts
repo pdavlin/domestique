@@ -32,7 +32,7 @@ export interface ErrorContext {
 /**
  * Source of the error - which API or component caused it.
  */
-export type ErrorSource = 'intervals' | 'whoop' | 'trainerroad' | 'date_parser';
+export type ErrorSource = 'intervals' | 'trainerroad' | 'date_parser';
 
 /**
  * Base error class for all API and tool errors.
